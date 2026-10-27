@@ -325,7 +325,10 @@ for (const id of plannedIds) {
   // Pairing happens on the cards ACTUALLY chosen, not on candidate positions:
   // the picker skips collisions, so position arithmetic protected the wrong
   // base and left the real last one unpaired three sittings running.
-  if (!/for \(const step of fresh\)[\s\S]{0,700}pairedFresh\.push\(extension\.step\)/.test(guided)) {
+  // The one exception: inside a conversation or similar-sentences block the
+  // extension waits until the block ends, so a question keeps its answer.
+  if (!/for \(const step of fresh\)[\s\S]{0,900}\(blockSteps\.has\(step\) \? heldExtensions : pairedFresh\)\.push\(extension\.step\)/.test(guided)
+    || !/pairedFresh\.push\(\.\.\.heldExtensions\)/.test(guided)) {
     failures.push("extensions are no longer inserted directly behind the served base");
   }
   if (!/reviews\.length = Math\.min\(reviews\.length, sittingRoom\)/.test(guided)) {

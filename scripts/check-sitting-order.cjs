@@ -40,10 +40,10 @@ const built = esbuild.buildSync({
       'export { buildListenQueue, LISTEN_QUEUE_ORDERS } from "./src/lib/listenMode.ts";',
       'export { allPartBlueprints } from "./src/lib/data.ts";',
       'export { buildApiPartFromResolved } from "./src/lib/api.ts";',
-      'export { buildBundledParts } from "./src/lib/contentBank.ts";',
+      'export { buildBundledParts, buildTatoebaParts } from "./src/lib/contentBank.ts";',
       // For asking the SITTING the question Listen is asked, rather than
       // reading the source and hoping.
-      'export { buildCatalog, orderWithChains } from "./src/session.ts";',
+      'export { buildCatalog, orderWithChains, deriveImplicitChains } from "./src/session.ts";',
       'export { takeMatchingSafe } from "./src/lib/germanTextMatch.ts";',
       'export { conversationPriorityScore } from "./src/lib/conversationPriority.ts";',
       'export { buildCorpusIndex, sentenceCommonality } from "./src/lib/corpusFrequency.ts";',
@@ -58,7 +58,7 @@ const compiled = new Module("sitting-order-check", module);
 compiled.filename = path.join(root, ".sitting-order-check.cjs");
 compiled.paths = Module._nodeModulePaths(root);
 compiled._compile(built.outputFiles[0].text, compiled.filename);
-const { order: O, sentencePattern, sharesPattern, buildExchangeIndex, exchangeChain, exchangeKey, exchangePlace, repliesTo, selectContinueLearningMix, pickReviews, buildListenQueue, LISTEN_QUEUE_ORDERS, allPartBlueprints, buildApiPartFromResolved, buildBundledParts, buildCatalog, orderWithChains, takeMatchingSafe, conversationPriorityScore, buildCorpusIndex, sentenceCommonality } = compiled.exports;
+const { order: O, sentencePattern, sharesPattern, buildExchangeIndex, exchangeChain, exchangeKey, exchangePlace, repliesTo, selectContinueLearningMix, pickReviews, buildListenQueue, LISTEN_QUEUE_ORDERS, allPartBlueprints, buildApiPartFromResolved, buildBundledParts, buildTatoebaParts, buildCatalog, orderWithChains, deriveImplicitChains, takeMatchingSafe, conversationPriorityScore, buildCorpusIndex, sentenceCommonality } = compiled.exports;
 
 const failures = [];
 const check = (name, ok, detail = "") => {
@@ -293,7 +293,14 @@ check("the sitting leads with a card that has a reply, and its reply follows it"
  */
 const NEW_PER_LESSON_TARGET = 3;
 const corpusIndex = buildCorpusIndex(parts);
-const sittingCandidates = buildCatalog(parts).map((item, index) => {
+// The sitting's pool is wider than Listen's: guided_learning_session adds the
+// Tatoeba packs, and derives chains between sentences where one extends
+// another. Both matter here — derived chains are pinned into the fresh slots,
+// and that competition is what cut the reply out of a sitting.
+const sittingCatalog = buildCatalog({ ...parts, ...buildTatoebaParts() }).filter((item) => item.kind !== "vocab");
+const derivedRows = sittingCatalog.map((item) => ({ id: item.id, de: String(item.de ?? ""), originalDe: item.originalDe, buildsOn: item.buildsOn, score: 0 }));
+deriveImplicitChains(derivedRows);
+const sittingCandidates = sittingCatalog.map((item, index) => {
   const de = String(item.de ?? "");
   const commonality = sentenceCommonality(de, corpusIndex);
   return {
@@ -304,25 +311,32 @@ const sittingCandidates = buildCatalog(parts).map((item, index) => {
     score: conversationPriorityScore({
       partKey: item.partKey, kind: item.kind, commonality, lessonPriority: item.lessonPriority,
     }),
-    step: { type: "sentence", item: { id: item.id, de, en: item.en, buildsOn: item.buildsOn, originalDe: item.originalDe } },
+    step: { type: "sentence", item: { id: item.id, de, en: item.en, buildsOn: derivedRows[index].buildsOn, originalDe: item.originalDe } },
   };
 });
-const freshSitting = (seenCount) => {
+const freshSitting = (seenCount, sorts = []) => {
   const inCourseOrder = [...sittingCandidates].sort(O.sittingComparator(O.DEFAULT_SITTING_PLAN, sittingCandidates));
   const seen = new Set(inCourseOrder.slice(0, seenCount).map((c) => exchangeKey(c.de)));
   const candidates = [...sittingCandidates]
     .filter((c) => !seen.has(exchangeKey(c.de)))
-    .sort(O.sittingComparator(plan("conversation"), sittingCandidates));
+    .sort(O.sittingComparator({ sorts, grouping: "conversation" }, sittingCandidates));
   const byKey = new Map(candidates.map((c) => [exchangeKey(c.de), c]));
   const lead = candidates.find((c) => exchangeChain(c.de, exchanges, (k) => byKey.has(k), 1).length > 0)
     ?? candidates[0];
   const mates = exchangeChain(lead.de, exchanges, (k) => byKey.has(k), NEW_PER_LESSON_TARGET)
     .map((k) => byKey.get(k))
     .filter((c) => c && c !== lead);
-  const pinned = new Set([lead, ...mates]);
-  const ranked = orderWithChains([lead, ...mates, ...candidates.filter((c) => !pinned.has(c))].map((c) => ({
-    candidate: c, de: c.de, originalDe: c.step.item.originalDe, buildsOn: c.step.item.buildsOn,
-  }))).map((row) => row.candidate);
+  // As the session does: chained cards among the top few by the order are
+  // pinned, and they compete with the reply for the fresh slots. The lead and
+  // its reply are one block at the front, outside orderWithChains.
+  const pinnedChains = candidates.slice(0, NEW_PER_LESSON_TARGET).filter((c) => c !== lead && c.step.item.buildsOn && !mates.includes(c));
+  const block = mates.length ? [lead, ...mates] : [];
+  const inBlock = new Set(block);
+  const pinned = new Set([lead, ...mates, ...pinnedChains]);
+  const ranked = [...block, ...orderWithChains([lead, ...pinnedChains, ...mates, ...candidates.filter((c) => !pinned.has(c))]
+    .filter((c) => !inBlock.has(c))
+    .map((c) => ({ candidate: c, de: c.de, originalDe: c.step.item.originalDe, buildsOn: c.step.item.buildsOn })))
+    .map((row) => row.candidate)];
   return takeMatchingSafe(
     ranked.map((c) => c.step),
     NEW_PER_LESSON_TARGET,
@@ -330,15 +344,29 @@ const freshSitting = (seenCount) => {
     new Set()
   ).map((step) => step.item.de);
 };
-for (const seenCount of [0, 600]) {
-  const taught = freshSitting(seenCount);
-  const replies = repliesTo(taught[0], exchanges);
-  check(
-    `a sitting in conversation order opens on an exchange${seenCount ? ` after ${seenCount} cards learned` : ""}`,
-    taught.length >= 2 && replies.includes(exchangeKey(taught[1])),
-    `it teaches: ${taught.join("  →  ")}`
-  );
+// Conversation order alone, and on top of most common first. The second is
+// the combination that cut replies out: most common first ties thousands of
+// short sentences at the top of the commonality scale, their derived
+// extensions were pinned ahead of the reply, and the sitting opened on
+// "Wie sieht sie aus?" followed by a stranger.
+for (const sorts of [[], ["common"], ["common", "level"]]) {
+  for (const seenCount of [0, 600, 900]) {
+    const taught = freshSitting(seenCount, sorts);
+    const replies = repliesTo(taught[0], exchanges);
+    check(
+      `a sitting in conversation order${sorts.length ? ` (after ${sorts.join(", then ")})` : ""} opens on an exchange${seenCount ? ` after ${seenCount} cards learned` : ""}`,
+      taught.length >= 2 && replies.includes(exchangeKey(taught[1])),
+      `it teaches: ${taught.join("  →  ")}`
+    );
+  }
 }
+check("the session puts the grouping's block first, outside the chain regrouping",
+  /const groupBlock = lead && groupMates\.length > 0 \? \[lead, \.\.\.groupMates\] : \[\];/u.test(sitting)
+  && /\[\.\.\.groupBlock, \.\.\.orderWithChains\(\[/u.test(sitting)
+  && /\.filter\(\(candidate\) => !inGroupBlock\.has\(candidate\)\)/u.test(sitting));
+check("and an extension of a card in the block waits until the block ends",
+  /\(blockSteps\.has\(step\) \? heldExtensions : pairedFresh\)\.push\(extension\.step\);/u.test(sitting)
+  && /pairedFresh\.push\(\.\.\.heldExtensions\);/u.test(sitting));
 
 check("Listen accepts conversation order and its picker offers it",
   LISTEN_QUEUE_ORDERS.includes("conversation") && /"conversation", "Conversation order",/u.test(view)
@@ -373,7 +401,8 @@ check("the first exchange really is a question and its reply",
 // around the exchange — a preference, so a sitting with nothing fitting is
 // exactly what it was.
 check("the fresh slots hold the whole exchange (or run of similar sentences), reviews give way",
-  /const mates = sittingPlan\.grouping === "conversation" \? exchangeMates : sittingPlan\.grouping === "similar" \? patternMates : \[\];/u.test(sitting)
+  /const groupMates = sittingPlan\.grouping === "conversation" \? exchangeMates\s*: sittingPlan\.grouping === "similar" \? patternMates : \[\];/u.test(sitting)
+  && /const mates = groupMates;/u.test(sitting)
   && /sentenceSlots\.freshSlots = Math\.max\(sentenceSlots\.freshSlots, Math\.min\(NEW_PER_LESSON_TARGET, 1 \+ mates\.length\)\)/u.test(sitting)
   && /const sittingRoom = Math\.max\(1, 6 - fresh\.length - mixedWords\.length\)/u.test(sitting));
 check("reviews from the lead's conversation are preferred, then dealt in dialogue order around the exchange",

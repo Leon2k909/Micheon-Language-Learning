@@ -1339,12 +1339,25 @@ export default function GuidedLearningSession() {
             .filter((candidate) => candidate !== lead && !inChain.has(candidate) && !pinnedChains.includes(candidate))
         : [];
       const pinned = new Set([...chainAfterLead, ...pinnedChains, ...patternMates, ...exchangeMates]);
+      // A chosen grouping is what the sitting is FOR, so the lead and its
+      // mates are one block at the front and take the fresh slots first. They
+      // used to sit behind the pinned chains, and a sitting has three fresh
+      // slots: with most common first, extensions of the commonest short
+      // sentences ("Ich kann nicht." and then "Ich kann nicht nach Hause.")
+      // tie at the top, were pinned, and filled slots two and three, so
+      // "Wie sieht sie aus?" was followed by a stranger instead of its answer.
+      // The block is also kept out of orderWithChains, which would otherwise
+      // pull the lead's own extensions in between the lead and its reply.
+      const groupMates = sittingPlan.grouping === "conversation" ? exchangeMates
+        : sittingPlan.grouping === "similar" ? patternMates : [];
+      const groupBlock = lead && groupMates.length > 0 ? [lead, ...groupMates] : [];
+      const inGroupBlock = new Set(groupBlock);
       // Regrouped once more at the end: the pack-mates reorder above can pull
       // dozens of the lead's pack between a base and its extension whenever
       // the base is NOT the lead. orderWithChains pulls every extension back
       // to directly behind its base, wherever the reorder put them.
       const rankedCandidates = lead
-        ? orderWithChains([
+        ? [...groupBlock, ...orderWithChains([
             lead,
             ...chainAfterLead,
             ...pinnedChains,
@@ -1360,12 +1373,12 @@ export default function GuidedLearningSession() {
             ...candidates.filter((candidate) => candidate !== lead && !pinned.has(candidate)
               && candidate.pId === lead.pId && candidate.score - lead.score <= PACK_MATE_SCORE_MARGIN),
             ...candidates.filter((candidate) => candidate !== lead && !pinned.has(candidate) && candidate.pId !== lead.pId),
-          ].map((candidate) => ({
+          ].filter((candidate) => !inGroupBlock.has(candidate)).map((candidate) => ({
             candidate,
             de: String(candidate.step.item?.de ?? ""),
             originalDe: candidate.step.item?.originalDe ? String(candidate.step.item.originalDe) : undefined,
             buildsOn: candidate.step.item?.buildsOn ? String(candidate.step.item.buildsOn) : undefined,
-          }))).map((row) => row.candidate)
+          }))).map((row) => row.candidate)]
         : [];
       // A sitting is six sentences at most. A due backlog trades new-material
       // slots for review slots (5+1 when loaded) rather than growing the
@@ -1395,7 +1408,7 @@ export default function GuidedLearningSession() {
       // way they already give way to words. A backlog of ten due reviews
       // used to leave one fresh slot — the question and never its reply;
       // with words in the sitting it did so from four.
-      const mates = sittingPlan.grouping === "conversation" ? exchangeMates : sittingPlan.grouping === "similar" ? patternMates : [];
+      const mates = groupMates;
       if (mates.length > 0) {
         sentenceSlots.freshSlots = Math.max(sentenceSlots.freshSlots, Math.min(NEW_PER_LESSON_TARGET, 1 + mates.length));
       }
@@ -1432,7 +1445,13 @@ export default function GuidedLearningSession() {
       const sittingKeys = new Set<string>(
         [...fresh, ...reviews].map((step: any) => chainKey(step?.item?.de)).filter(Boolean)
       );
+      // Inside the grouping's block an extension waits until the block ends,
+      // so a question is still followed by its answer, and a run of similar
+      // sentences stays a run.
+      const blockSteps = new Set(groupBlock.map((candidate) => candidate.step));
+      const heldExtensions: any[] = [];
       for (const step of fresh) {
+        if (heldExtensions.length && !blockSteps.has(step)) pairedFresh.push(...heldExtensions.splice(0));
         pairedFresh.push(step);
         const item = (step as any)?.item;
         if (!item) continue;
@@ -1446,8 +1465,9 @@ export default function GuidedLearningSession() {
         if (!extension) continue;
         sittingKeys.add(chainKey(extension.step.item.de));
         extension.step.item.chainedFromLesson = true;
-        pairedFresh.push(extension.step);
+        (blockSteps.has(step) ? heldExtensions : pairedFresh).push(extension.step);
       }
+      pairedFresh.push(...heldExtensions);
       fresh.length = 0;
       fresh.push(...pairedFresh);
       // The sitting stays six: the cards the pairs displaced are the tail of
