@@ -5,7 +5,14 @@
 # offline gate proves the client copes with a refusal, but it cannot see the
 # real service, and the first sign was the voice arriving late in the app.
 #
-# Every six hours this times real handshakes (scripts/probe-tts-hosts.mjs).
+# Every six hours this has real clips synthesised through the app's own speech
+# window (scripts/probe-speech-electron.mjs, under Electron and a virtual
+# display). It used to time handshakes from plain Node, and that measured the
+# wrong client: the service judges the TLS handshake, so Node on a runner and
+# Electron on a learner's machine get different answers. In October 2026 Node
+# here was turned away while learners' apps were too, for a different reason,
+# and the probe could not have said whether a fix worked.
+#
 # An unhealthy result opens a single "speech-outage" issue, mentioning the
 # repository owner so it arrives as an email; while the outage lasts, later
 # runs refresh that issue's report instead of piling up comments. The first
@@ -32,7 +39,7 @@ permissions:
 jobs:
   probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       GH_REPO: ${{ github.repository }}
@@ -46,15 +53,20 @@ jobs:
           node-version: 22
           cache: npm
 
-      # The speech client needs only ws; the production set is four packages
-      # and skips Electron entirely.
-      - name: Install the speech client's dependencies
-        run: npm ci --omit=dev --ignore-scripts
+      # Electron itself is needed, with its install script, which downloads
+      # the binary; xvfb gives it a display to run without one.
+      - name: Install Electron and a virtual display
+        run: |
+          npm ci
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb
 
-      - name: Time handshakes against every speech host
+      # --no-sandbox: Ubuntu's runners do not allow the Chromium sandbox's
+      # user namespaces. The probe loads no content but the service's audio.
+      - name: Synthesise clips through the app's speech window
         id: probe
         continue-on-error: true
-        run: node scripts/probe-tts-hosts.mjs --report speech-report.md
+        run: xvfb-run -a npx electron --no-sandbox scripts/probe-speech-electron.mjs --report speech-report.md
 
       - name: Open or refresh the outage issue
         if: steps.probe.outcome == 'failure'

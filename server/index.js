@@ -257,8 +257,26 @@ export function pronunciationRateFor(text, voice, requestedRate) {
 /** Index of the host that answered last, so the next clip starts there. */
 let preferredHost = 0;
 
+/**
+ * Who synthesises, when it is not this process's own WebSocket client.
+ *
+ * Inside the desktop app the server runs in Electron's main process, and the
+ * service turns away that runtime's TLS handshake outright: identical requests
+ * that Node opens are answered with a bare 200 under Electron, every time, so
+ * the app's voice went silent while the same code worked from a terminal. The
+ * app therefore hands synthesis to Chromium's own network stack (see
+ * electron/speechWorker.js) through this. It owns its own connection, pacing
+ * and retries, and is given the whole budget once: a second layer of retries
+ * on top would put back the bursts of handshakes the service rate-limits.
+ */
+let speechSynthesizer = null;
+export function useSpeechSynthesizer(synthesize) {
+  speechSynthesizer = typeof synthesize === "function" ? synthesize : null;
+}
+
 async function synthesizeWithRetries(text, voice, rate) {
   const started = Date.now();
+  if (speechSynthesizer) return speechSynthesizer(text, voice, rate, { deadline: started + SYNTHESIS_BUDGET_MS });
   let lastError;
   for (let attempt = 0; attempt < SYNTHESIS_MAX_ATTEMPTS; attempt += 1) {
     if (attempt > 0 && Date.now() - started > SYNTHESIS_BUDGET_MS) break;

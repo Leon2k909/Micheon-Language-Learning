@@ -32,13 +32,25 @@ export const SYNTHESIS_HOSTS = [
   `wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1?TrustedClientToken=${TRUSTED_CLIENT_TOKEN}`,
 ];
 
-const WSS_HEADERS = {
+/**
+ * Who the service is told is asking: Edge's Read Aloud, by name and by origin.
+ * Both are checked. Measured on 2026-10-27, an Electron user agent is refused
+ * with a 403, and a web page's origin gets a bare 200 instead of a socket;
+ * Read Aloud's own extension origin, or none, is served. Exported for the
+ * desktop app's Chromium transport (electron/speechWorker.js), which has to
+ * put the same two on its requests.
+ */
+export const SPEECH_CLIENT_HEADERS = {
   "User-Agent": `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${CHROMIUM_MAJOR_VERSION}.0.0.0 Safari/537.36 Edg/${CHROMIUM_MAJOR_VERSION}.0.0.0`,
+  Origin: "chrome-extension://jdiccldimpdaibmpdkjnbmckianbfold",
+};
+
+const WSS_HEADERS = {
+  ...SPEECH_CLIENT_HEADERS,
   "Accept-Encoding": "gzip, deflate, br, zstd",
   "Accept-Language": "en-US,en;q=0.9",
   Pragma: "no-cache",
   "Cache-Control": "no-cache",
-  Origin: "chrome-extension://jdiccldimpdaibmpdkjnbmckianbfold",
 };
 
 // A handshake normally completes in 100-300ms and a refusal in under 200ms;
@@ -125,17 +137,48 @@ export class SynthesisRefused extends Error {
   }
 }
 
+/** A host's address for one new connection: signed for the current five minutes. */
+export function speechSocketUrl(host = SYNTHESIS_HOSTS[0]) {
+  return `${host}&Sec-MS-GEC=${secMsGec()}&Sec-MS-GEC-Version=${SEC_MS_GEC_VERSION}`
+    + `&ConnectionId=${randomUUID().replace(/-/gu, "")}`;
+}
+
+/** The frame that opens a connection's audio settings, sent once per turn. */
+export function speechConfigFrame() {
+  return `X-Timestamp:${timestamp()}\r\n`
+    + "Content-Type:application/json; charset=utf-8\r\n"
+    + "Path:speech.config\r\n\r\n"
+    + '{"context":{"synthesis":{"audio":{"metadataoptions":{"sentenceBoundaryEnabled":"false",'
+    + '"wordBoundaryEnabled":"false"},"outputFormat":"audio-24khz-48kbitrate-mono-mp3"}}}}\r\n';
+}
+
+/** The frame that asks for one clip. */
+export function ssmlFrame(text, voice, rate) {
+  const ssml = "<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'>"
+    + `<voice name='${serviceVoiceName(voice)}'>`
+    + `<prosody pitch='+0Hz' rate='${rate}' volume='+0%'>${escapeXml(text)}</prosody>`
+    + "</voice></speak>";
+  return `X-RequestId:${randomUUID().replace(/-/gu, "")}\r\n`
+    + "Content-Type:application/ssml+xml\r\n"
+    + `X-Timestamp:${timestamp()}Z\r\n`
+    + `Path:ssml\r\n\r\n${ssml}`;
+}
+
 /**
  * Synthesise one clip as MP3, through the given host.
  *
  * Resolves with the audio once the service ends its turn; rejects as soon as
  * the attempt has failed in any way. Never retries — see synthesizeOnce in
  * index.js for that.
+ *
+ * This is the transport for the server under Node. Inside the desktop app the
+ * same requests go through Chromium instead (electron/speechWorker.js): the
+ * service turns away the TLS handshake of Electron's own Node, whatever the
+ * headers say.
  */
 export function synthesizeSpeech(text, voice, rate, host = SYNTHESIS_HOSTS[0]) {
   return new Promise((resolve, reject) => {
-    const url = `${host}&Sec-MS-GEC=${secMsGec()}&Sec-MS-GEC-Version=${SEC_MS_GEC_VERSION}`
-      + `&ConnectionId=${randomUUID().replace(/-/gu, "")}`;
+    const url = speechSocketUrl(host);
     const socket = new WebSocket(url, {
       headers: { ...WSS_HEADERS, Cookie: `muid=${randomBytes(16).toString("hex").toUpperCase()};` },
       handshakeTimeout: HANDSHAKE_TIMEOUT_MS,
@@ -170,23 +213,8 @@ export function synthesizeSpeech(text, voice, rate, host = SYNTHESIS_HOSTS[0]) {
 
     socket.on("open", () => {
       armSilence();
-      socket.send(
-        `X-Timestamp:${timestamp()}\r\n`
-        + "Content-Type:application/json; charset=utf-8\r\n"
-        + "Path:speech.config\r\n\r\n"
-        + '{"context":{"synthesis":{"audio":{"metadataoptions":{"sentenceBoundaryEnabled":"false",'
-        + '"wordBoundaryEnabled":"false"},"outputFormat":"audio-24khz-48kbitrate-mono-mp3"}}}}\r\n'
-      );
-      const ssml = "<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'>"
-        + `<voice name='${serviceVoiceName(voice)}'>`
-        + `<prosody pitch='+0Hz' rate='${rate}' volume='+0%'>${escapeXml(text)}</prosody>`
-        + "</voice></speak>";
-      socket.send(
-        `X-RequestId:${randomUUID().replace(/-/gu, "")}\r\n`
-        + "Content-Type:application/ssml+xml\r\n"
-        + `X-Timestamp:${timestamp()}Z\r\n`
-        + `Path:ssml\r\n\r\n${ssml}`
-      );
+      socket.send(speechConfigFrame());
+      socket.send(ssmlFrame(text, voice, rate));
     });
 
     socket.on("message", (data, isBinary) => {

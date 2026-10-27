@@ -166,9 +166,11 @@ const screenshotPaths = [
   "docs/screenshots/micheon-home.png",
   "docs/screenshots/micheon-guided-lesson.png",
   "docs/screenshots/micheon-guided-session.png",
-  "docs/screenshots/micheon-dark-accent.png",
+  "docs/screenshots/micheon-light-theme.png",
   "docs/screenshots/micheon-lessons.png",
-  "docs/screenshots/micheon-games.png",
+  "docs/screenshots/micheon-practice.png",
+  "docs/screenshots/micheon-quick-match.png",
+  "docs/screenshots/micheon-reorder.png",
 ];
 
 check("the document advertises Micheon favicons at every common size", documentHead.includes('href="/favicon.svg') && documentHead.includes('href="/icon-64.png') && documentHead.includes('rel="apple-touch-icon"') && documentHead.includes('href="/icon.png'));

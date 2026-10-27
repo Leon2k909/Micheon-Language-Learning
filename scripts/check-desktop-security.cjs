@@ -61,6 +61,32 @@ check("the updater does not ask for block maps the release never uploads",
   main.includes("autoUpdater.disableDifferentialDownload = true;")
     && read(".github/workflows/release.yml").includes(".blockmap files are deliberately NOT uploaded"));
 
+// The hidden speech window is the one window that talks to another site, so
+// it carries nothing that would make it worth talking to.
+const speech = code("electron/speechWorker.js");
+check("the speech window is sandboxed, isolated, and has no Node",
+  /sandbox: true,/u.test(speech) && /contextIsolation: true,/u.test(speech) && /nodeIntegration: false,/u.test(speech)
+    && !/preload:/u.test(speech));
+check("the speech window grants no permission and opens no window",
+  /setPermissionRequestHandler\(\(_contents, _permission, callback\) => callback\(false\)\)/u.test(speech)
+    && /setPermissionCheckHandler\(\(\) => false\)/u.test(speech)
+    && /setWindowOpenHandler\(\(\) => \(\{ action: "deny" \}\)\)/u.test(speech));
+check("the speech window loads nothing but a blank page, in its own session",
+  /loadURL\("about:blank"\)/u.test(speech) && !/loadURL\((?!"about:blank")/u.test(speech)
+    && /session\.fromPartition\(PARTITION\)/u.test(speech) && !/defaultSession/u.test(speech));
+// Read raw: the pattern's own "/*" would look like a comment to code().
+check("its session rewrites headers only for the speech hosts",
+  /const SPEECH_URL_PATTERNS = SYNTHESIS_HOSTS\.map\(\(host\) => `wss:\/\/\$\{new URL\(host\)\.host\}\/\*`\);/u
+    .test(read("electron/speechWorker.js"))
+    && /onBeforeSendHeaders\(\{ urls: SPEECH_URL_PATTERNS \}/u.test(read("electron/speechWorker.js")));
+check("the app hands synthesis to the speech window, and lets it go with the main window",
+  /useSpeechSynthesizer\(chromiumSpeech\.synthesize\);\s*await startServer\(PORT\);/u.test(main)
+    && /mainWindow\.on\("closed"[\s\S]*?chromiumSpeech\.destroy\(\);/u.test(main)
+    && /app\.on\("before-quit"[\s\S]*?chromiumSpeech\.destroy\(\);/u.test(main));
+check("an injected synthesizer gets the budget once, with no retry layer on top",
+  /if \(speechSynthesizer\) return speechSynthesizer\(text, voice, rate, \{ deadline: started \+ SYNTHESIS_BUDGET_MS \}\);/u
+    .test(code("server/index.js")));
+
 // ── the release pipeline ───────────────────────────────────────────────────
 const release = read(".github/workflows/release.yml");
 const job = (name) => {

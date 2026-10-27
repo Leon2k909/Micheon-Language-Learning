@@ -26,7 +26,8 @@ import { createRequire } from "module";
 import path from "path";
 import { fileURLToPath } from "url";
 import electronUpdater from "electron-updater";
-import { setListenPlaying, startServer } from "../server/index.js";
+import { setListenPlaying, startServer, useSpeechSynthesizer } from "../server/index.js";
+import { createChromiumSpeech } from "./speechWorker.js";
 import petHistoryGeometry from "./pet-history-geometry.cjs";
 import desktopSettingsStore from "./desktop-settings.cjs";
 import zoomSteps from "./zoom-steps.cjs";
@@ -362,8 +363,14 @@ if (!hasSingleInstanceLock) {
   });
 }
 
+// The server's voice goes through Chromium here, not through Node's own
+// WebSocket client: the speech service turns away Electron's TLS handshake.
+// See electron/speechWorker.js.
+const chromiumSpeech = createChromiumSpeech();
+
 async function ensureServer() {
   if (serverStarted) return;
+  useSpeechSynthesizer(chromiumSpeech.synthesize);
   await startServer(PORT);
   serverStarted = true;
 }
@@ -1643,6 +1650,8 @@ async function createWindow() {
     clearPetHistoryDestroyTimer();
     if (petHistoryWindow && !petHistoryWindow.isDestroyed()) petHistoryWindow.destroy();
     if (petWindow && !petWindow.isDestroyed()) petWindow.destroy();
+    // The hidden speech window would otherwise keep window-all-closed from firing.
+    chromiumSpeech.destroy();
   });
 }
 
@@ -2567,6 +2576,7 @@ app.on("before-quit", () => {
   savePetOverlayBounds();
   clearListenMediaControls();
   destroyTray();
+  chromiumSpeech.destroy();
 });
 
 // macOS: re-create a window when the dock icon is clicked and none are open.
