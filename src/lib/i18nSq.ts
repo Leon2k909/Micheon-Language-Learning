@@ -1283,6 +1283,7 @@ export const SQ: Record<string, string> = {
   "Light for daytime study, dark for late evenings. Lessons keep their own background either way.": "E çelët për të mësuar gjatë ditës, e errët për mbrëmjet e vona. Mësimet e ruajnë sfondin e tyre në çdo rast.",
   "Currently": "Aktualisht",
   "Easier on tired eyes": "Më e butë për sytë e lodhur",
+  "Best in a bright room": "Për dhoma me shumë dritë",
   "The default": "Parazgjedhja",
   "Accent colour": "Ngjyra e theksit",
   "The colour of buttons, progress and anything selected. Micheon green is the default.": "Ngjyra e butonave, e përparimit dhe e çdo gjëje të zgjedhur. Si parazgjedhje është e gjelbra e Micheon.",

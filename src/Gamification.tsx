@@ -66,7 +66,7 @@ import { detectEnglishVariant, englishVariantLabel, getEnglishVariant, resolveEn
 import { FluencyMeter } from "@/components/FluencyMeter";
 import { MasteryCard } from "@/components/lab/MasteryCard";
 import { getFluency, countKnownVocab } from "@/lib/fluency";
-import { THEME_CHANGE_EVENT, getThemePreference, setTheme, systemTheme, type ThemePreference } from "@/lib/theme";
+import { DEFAULT_THEME, THEME_CHANGE_EVENT, getThemePreference, setTheme, systemTheme, type ThemePreference } from "@/lib/theme";
 import {
   ACCENT_CHANGE_EVENT,
   ACCENT_PRESETS,
@@ -1392,7 +1392,8 @@ export default function GamificationPanel({
                             <span className="mt-0.5 block text-[11px] font-semibold text-[var(--text-3)]">
                               {value === "system"
                                 ? `${ui("Currently")} ${ui(systemTheme() === "dark" ? "dark" : "light")}`
-                                : value === "dark" ? ui("Easier on tired eyes") : ui("The default")}
+                                : value === DEFAULT_THEME ? ui("The default")
+                                : value === "dark" ? ui("Easier on tired eyes") : ui("Best in a bright room")}
                             </span>
                           </button>
                         );

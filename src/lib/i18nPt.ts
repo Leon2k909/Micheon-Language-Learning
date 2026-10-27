@@ -1253,6 +1253,7 @@ export const PT: Record<string, string> = {
   "Light for daytime study, dark for late evenings. Lessons keep their own background either way.": "Claro para estudar de dia, escuro para as noites. As lições mantêm o seu próprio fundo em qualquer dos casos.",
   "Currently": "Neste momento",
   "Easier on tired eyes": "Mais suave para olhos cansados",
+  "Best in a bright room": "Ideal em espaços bem iluminados",
   "The default": "O de sempre",
   "Accent colour": "Cor de destaque",
   "The colour of buttons, progress and anything selected. Micheon green is the default.": "A cor dos botões, do progresso e de tudo o que está selecionado. O verde do Micheon é a predefinição.",

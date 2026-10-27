@@ -278,6 +278,11 @@ export function applyAccentColour(hex: string = getAccentColour()) {
     ["--accent-dim", shades.accentDim],
     ["--accent-text", shades.accentText],
     ["--accent-strong", theme === "dark" ? shades.accentHover : shades.accentPressed],
+    // Ink for text ON the pressed fill. accentText is picked against the
+    // accent, and the pressed shade is dark enough to flip the winner: the
+    // dark lesson preview's pill read 3.97:1 in near-black on Violet where
+    // white reaches 4.86, and its counter, hardcoded white, 2.11:1 on Amber.
+    ["--accent-pressed-ink", inkOn(shades.accentPressed)],
     // Accent-coloured TEXT. --accent is tuned to be a fill; used as ink on the
     // page it lands around 3.7:1, which fails. This is the same hue pushed
     // until it clears 4.5:1 against the surface it will actually sit on.

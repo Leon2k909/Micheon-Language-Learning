@@ -12,6 +12,13 @@ const THEME_CHOSEN_KEY = "gl-theme-chosen";
 export type Theme = "dark" | "light";
 
 /**
+ * What an install that never chose gets. Appearance labels this option
+ * "The default" from here, so the label cannot keep naming light after the
+ * default moved.
+ */
+export const DEFAULT_THEME: Theme = "dark";
+
+/**
  * What the learner CHOSE, which is not always what is on screen: "system"
  * resolves against the OS setting and follows it while the app is open.
  */
@@ -25,9 +32,9 @@ export function systemTheme(): Theme {
 }
 
 export function getThemePreference(): ThemePreference {
-  if (typeof window === "undefined") return "dark";
+  if (typeof window === "undefined") return DEFAULT_THEME;
   const stored = localStorage.getItem(KEY);
-  return stored === "light" || stored === "dark" || stored === "system" ? stored : "dark";
+  return stored === "light" || stored === "dark" || stored === "system" ? stored : DEFAULT_THEME;
 }
 
 export function resolveTheme(preference: ThemePreference = getThemePreference()): Theme {

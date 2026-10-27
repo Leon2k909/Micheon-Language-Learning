@@ -74,8 +74,14 @@ if (!/THEMES/.test(settings) || !/^\s*theme: "(light|dark)",/m.test(settings)) {
 // is how it survived dark becoming the app default and let the native window
 // keep opening white under a dark page — the exact flash it exists to stop.
 const themeLib = read("src/lib/theme.ts");
-const appDefault = (themeLib.match(/stored === "system" \? stored : "(light|dark)"/) || [])[1];
+const appDefault = (themeLib.match(/export const DEFAULT_THEME: Theme = "(light|dark)";/) || [])[1];
 const paintDefault = (settings.match(/^\s*theme: "(light|dark)",/m) || [])[1];
+// Unreadable is a failure, not a pass: the comparison below skips silently
+// when either side is missing.
+if (!appDefault) failures.push("theme.ts no longer declares DEFAULT_THEME, so the app default cannot be compared with anything");
+if (!/stored === "system" \? stored : DEFAULT_THEME/.test(themeLib)) {
+  failures.push("getThemePreference no longer falls back to DEFAULT_THEME, so the constant and the real default can drift apart");
+}
 if (appDefault && paintDefault && appDefault !== paintDefault) {
   failures.push(`the app defaults to ${appDefault} but the native window opens ${paintDefault} — that is a flash of the wrong theme on every cold start`);
 }
@@ -176,8 +182,17 @@ if (!/setDesktopTheme/.test(preload)) {
   failures.push("the preload bridge cannot pass the theme to the main process");
 }
 // ── dark is the default, but never over a real choice ────────────────────
-if (!/return "dark";/.test(theme) || /stored === "system" \? stored : "light"/.test(theme)) {
+if (appDefault !== "dark") {
   failures.push("theme.ts no longer defaults to dark");
+}
+// Appearance said "The default" under Light for as long as dark had been the
+// default, because the label was keyed to a literal. Keyed to the constant, it
+// follows the fallback wherever that goes.
+if (!/value === DEFAULT_THEME \? ui\("The default"\)/.test(profile)) {
+  failures.push('Appearance no longer labels DEFAULT_THEME as "The default", so the label can name a theme the app does not open in');
+}
+if (/value === "(light|dark)" \? ui\("The default"\)|"(light|dark)" \? ui\("[^"]*"\) : ui\("The default"\)/.test(profile)) {
+  failures.push('Appearance ties "The default" to a literal theme again instead of to DEFAULT_THEME');
 }
 if (!/THEME_CHOSEN_KEY/.test(theme) || !/migrateToDarkThemeDefault/.test(theme)) {
   failures.push("nothing separates an install that never chose from one that picked light — the migration would overwrite a real choice");

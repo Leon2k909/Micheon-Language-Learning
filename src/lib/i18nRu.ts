@@ -1648,6 +1648,7 @@ export const RU: Record<string, string> = {
   "Downloaded languages": "Загруженные языки",
   "Dreams & Aspirations": "Мечты и стремления",
   "Easier on tired eyes": "Мягче для усталых глаз",
+  "Best in a bright room": "Лучше всего в светлой комнате",
   "Filter notifications": "Фильтровать уведомления",
   "First question after": "Первый вопрос через",
   "Fishing & the forest": "Рыбалка и лес",

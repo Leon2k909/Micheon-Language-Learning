@@ -1276,6 +1276,7 @@ export const EL: Record<string, string> = {
   "Light for daytime study, dark for late evenings. Lessons keep their own background either way.": "Ανοιχτό για μελέτη την ημέρα, σκούρο για αργά το βράδυ. Οι ενότητες κρατούν έτσι κι αλλιώς το δικό τους φόντο.",
   "Currently": "Αυτήν τη στιγμή",
   "Easier on tired eyes": "Πιο ξεκούραστο για κουρασμένα μάτια",
+  "Best in a bright room": "Ιδανικό για φωτεινούς χώρους",
   "The default": "Η προεπιλογή",
   "Accent colour": "Χρώμα τονισμού",
   "The colour of buttons, progress and anything selected. Micheon green is the default.": "Το χρώμα των κουμπιών, της προόδου και κάθε επιλεγμένου στοιχείου. Το πράσινο του Micheon είναι η προεπιλογή.",

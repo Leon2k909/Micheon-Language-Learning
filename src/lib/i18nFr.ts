@@ -1362,6 +1362,7 @@ export const FR: Record<string, string> = {
   "Match system": "Comme le système",
   "The default": "Le réglage par défaut",
   "Easier on tired eyes": "Plus doux pour les yeux fatigués",
+  "Best in a bright room": "Idéal dans une pièce lumineuse",
   "Currently": "Actuellement",
   "light": "clair",
   "dark": "sombre",

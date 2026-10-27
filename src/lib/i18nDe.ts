@@ -1431,6 +1431,7 @@ export const DE: Record<string, string> = {
   "Match system": "Wie das System",
   "The default": "Die Standardeinstellung",
   "Easier on tired eyes": "Angenehmer für müde Augen",
+  "Best in a bright room": "Ideal für helle Räume",
   "Currently": "Aktuell",
   "light": "hell",
   "dark": "dunkel",

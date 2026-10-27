@@ -654,22 +654,34 @@ button { cursor: pointer; }
   background: var(--surface-1);
 }
 
+/* --accent-strong is published by a custom accent and inside the updater card,
+   and nowhere else. Under the default accent it is undefined, and an undefined
+   var() voids the whole declaration rather than one stop of it: the play button
+   painted no fill at all, so its ink sat straight on the page. Derived on the
+   element, from the --accent it actually inherits, the deep end exists in every
+   scope. --accent-dark is no substitute: it is computed once on :root, so
+   inside the prototype it is still the old purple. */
+.listen-play-button,
+.listen-mini-player__art {
+  --listen-accent-deep: var(--accent-strong, color-mix(in srgb, var(--accent) 75%, black));
+}
+
 .listen-play-button {
   border: 1px solid color-mix(in srgb, var(--accent-text) 28%, transparent);
   border-radius: 12px;
-  background: linear-gradient(180deg, var(--accent), var(--accent-strong));
+  background: linear-gradient(180deg, var(--accent), var(--listen-accent-deep));
   color: var(--accent-text);
-  box-shadow: inset 0 1px 0 color-mix(in srgb, white 30%, transparent), 0 3px 0 color-mix(in srgb, var(--accent-strong) 78%, black);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 30%, transparent), 0 3px 0 color-mix(in srgb, var(--listen-accent-deep) 78%, black);
   font-weight: 850;
   transition: filter 150ms ease, box-shadow 150ms ease, transform 120ms ease;
 }
 .listen-play-button:hover {
   filter: brightness(1.04);
-  box-shadow: inset 0 1px 0 color-mix(in srgb, white 34%, transparent), 0 4px 0 color-mix(in srgb, var(--accent-strong) 78%, black), 0 9px 20px color-mix(in srgb, var(--accent) 20%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 34%, transparent), 0 4px 0 color-mix(in srgb, var(--listen-accent-deep) 78%, black), 0 9px 20px color-mix(in srgb, var(--accent) 20%, transparent);
   transform: translateY(-1px);
 }
 .listen-play-button:active {
-  box-shadow: inset 0 1px 0 color-mix(in srgb, white 24%, transparent), 0 1px 0 color-mix(in srgb, var(--accent-strong) 78%, black);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 24%, transparent), 0 1px 0 color-mix(in srgb, var(--listen-accent-deep) 78%, black);
   transform: translateY(2px);
 }
 .listen-play-button:focus-visible {
@@ -897,9 +909,9 @@ button { cursor: pointer; }
   height: 44px;
   border: 1px solid color-mix(in srgb, var(--accent) 36%, transparent);
   border-radius: 14px;
-  background: linear-gradient(145deg, var(--accent), var(--accent-strong));
+  background: linear-gradient(145deg, var(--accent), var(--listen-accent-deep));
   color: var(--accent-text);
-  box-shadow: inset 0 1px 0 color-mix(in srgb, white 32%, transparent), 0 3px 0 var(--accent-dark);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 32%, transparent), 0 3px 0 color-mix(in srgb, var(--listen-accent-deep) 78%, black);
   transition: transform 150ms ease;
 }
 .listen-mini-player__art svg { width: 21px; height: 21px; }
@@ -4827,12 +4839,14 @@ html[data-theme="dark"] .guided-session.fs-app.prototype-guided-session .fs-know
   color: #fff !important;
 }
 
-/* Dark only. There the counter sits on --accent-pressed, which is deep enough
-   for white. The light accent fills it with a pale --accent-dim instead, and
-   white on that would be unreadable — so light keeps its own ink. */
+/* Dark only. There the counter sits on --accent-pressed; the light accent
+   fills it with a pale --accent-dim, where white would be unreadable, so light
+   keeps its own ink. White is right for the default green only: a custom
+   pressed fill can be as bright as Amber's, where white measured 2.11:1, so a
+   custom accent supplies the ink picked against that fill. */
 html[data-theme="dark"] .guided-session.fs-app.prototype-guided-session .fs-preview-head .fs-preview-count,
 html[data-theme="dark"] .guided-session.fs-app.prototype-guided-session .fs-preview-head .fs-preview-count small {
-  color: #fff !important;
+  color: var(--accent-pressed-ink, #fff) !important;
 }
 
 .guided-session.fs-app.prototype-guided-session .fs-flashcard-badge {
@@ -8154,7 +8168,7 @@ html[data-theme="dark"][data-accent="custom"] .guided-session.fs-app.prototype-g
 
 html:not([data-theme="dark"])[data-accent="custom"] .guided-session.fs-app.prototype-guided-session .fs-lesson-navigator-head > button:hover {
   background: var(--np-green-soft, var(--accent-dim));
-  color: var(--accent-text);
+  color: var(--accent-ink);
 }
 
 html:not([data-theme="dark"])[data-accent="custom"] .guided-session.fs-app.prototype-guided-session .fs-lesson-number {
@@ -8215,7 +8229,7 @@ html[data-theme="dark"][data-accent="custom"] .guided-session.fs-app.prototype-g
 html:not([data-theme="dark"])[data-accent="custom"] .guided-session.fs-app.prototype-guided-session .fs-iconbtn:hover {
   border-color: rgba(var(--accent-rgb), 0.34);
   background: var(--np-green-soft, var(--accent-dim));
-  color: var(--accent-text);
+  color: var(--accent-ink);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9),
     0 4px 0 rgba(var(--accent-hover-rgb), 0.18),
     0 10px 18px rgba(var(--accent-hover-rgb), 0.1);
@@ -8303,7 +8317,7 @@ html:not([data-theme="dark"])[data-accent="custom"] .guided-session.fs-app.proto
   border: 1px solid rgba(var(--accent-hover-rgb), 0.35);
   background: var(--np-green-soft, var(--accent-dim));
   box-shadow: 0 3px 0 rgba(var(--accent-hover-rgb), 0.18);
-  color: var(--accent-text);
+  color: var(--accent-ink);
 }
 
 html[data-theme="dark"][data-accent="custom"] .guided-session.fs-app.prototype-guided-session .fs-grade-undo button:not(.fs-grade-undo-dismiss) {
@@ -8319,7 +8333,7 @@ html:not([data-theme="dark"])[data-accent="custom"] .guided-session.fs-app.proto
 html:not([data-theme="dark"])[data-accent="custom"] .guided-session.fs-app.prototype-guided-session .dialogue-title-badge {
   border-color: rgba(var(--accent-hover-rgb), 0.3) !important;
   background: var(--np-green-soft, var(--accent-dim)) !important;
-  color: var(--accent-text);
+  color: var(--accent-ink);
   box-shadow: inset 0 1px 0 #fff, 0 3px 0 rgba(var(--accent-hover-rgb), 0.13);
 }
 
@@ -8456,7 +8470,7 @@ html:not([data-theme="dark"])[data-accent="custom"] .guided-session.fs-app.proto
 html:not([data-theme="dark"])[data-accent="custom"] .guided-session.fs-app.prototype-guided-session .fs-chip {
   border-color: rgba(var(--accent-rgb), 0.22);
   background: linear-gradient(180deg, var(--np-green-soft, var(--accent-dim)), var(--np-green-soft, var(--accent-dim)));
-  color: var(--accent-text);
+  color: var(--accent-ink);
 }
 
 html[data-theme="dark"][data-accent="custom"] .guided-session.fs-app.prototype-guided-session .fs-flashcard-badge {
@@ -8468,14 +8482,14 @@ html[data-theme="dark"][data-accent="custom"] .guided-session.fs-app.prototype-g
 }
 
 html:not([data-theme="dark"])[data-accent="custom"] .guided-session.fs-app.prototype-guided-session .fs-preview-count {
-  color: var(--accent-text);
+  color: var(--accent-ink);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.86),
     0 4px 0 rgba(var(--accent-hover-rgb), 0.25),
     0 10px 20px rgba(var(--accent-hover-rgb), 0.16);
 }
 
 html:not([data-theme="dark"])[data-accent="custom"] .guided-session.fs-app.prototype-guided-session .fs-preview-count small {
-  color: var(--accent-text);
+  color: var(--accent-ink);
 }
 
 html:not([data-theme="dark"])[data-accent="custom"] .guided-session.fs-app.prototype-guided-session .fs-flashcard-badge {
@@ -8509,7 +8523,7 @@ html[data-theme="dark"][data-accent="custom"] .guided-session.fs-app.prototype-g
 html:not([data-theme="dark"])[data-accent="custom"] .guided-session.fs-app.prototype-guided-session .fs-preview-route button.is-seen {
   border-color: rgba(var(--accent-rgb), 0.25);
   background: linear-gradient(180deg, var(--np-green-soft, var(--accent-dim)), var(--np-green-soft, var(--accent-dim)));
-  color: var(--accent-text);
+  color: var(--accent-ink);
   box-shadow: inset 0 1px 0 #fff, 0 3px 0 rgba(var(--accent-hover-rgb), 0.15);
 }
 
@@ -8580,7 +8594,7 @@ html:not([data-theme="dark"])[data-accent="custom"] .guided-session.fs-app.proto
 html:not([data-theme="dark"])[data-accent="custom"] .guided-session.fs-app.prototype-guided-session .fs-missing-play {
   border-color: rgba(var(--accent-rgb), 0.23);
   background: linear-gradient(180deg, var(--np-green-soft, var(--accent-dim)), var(--np-green-soft, var(--accent-dim)));
-  color: var(--accent-text);
+  color: var(--accent-ink);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85),
     0 4px 0 rgba(var(--accent-rgb), 0.17),
     0 9px 16px rgba(var(--accent-hover-rgb), 0.08);
@@ -8649,7 +8663,7 @@ html[data-theme="dark"][data-accent="custom"] .guided-session.fs-app.prototype-g
 html:not([data-theme="dark"])[data-accent="custom"] .guided-session.fs-app.prototype-guided-session .fs-preview-skip:hover {
   border-color: rgba(var(--accent-rgb), 0.42);
   background: var(--np-green-soft, var(--accent-dim));
-  color: var(--accent-text);
+  color: var(--accent-ink);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9),
     0 5px 0 rgba(var(--accent-hover-rgb), 0.18);
 }
@@ -8800,7 +8814,7 @@ html[data-theme="dark"][data-accent="custom"] .guided-session.fs-app.prototype-g
 html:not([data-theme="dark"])[data-accent="custom"] .guided-session.fs-app.prototype-guided-session :is( .fs-listening-choice > span,.fs-missing-option-number ) {
   border-color: rgba(var(--accent-rgb), 0.25);
   background: linear-gradient(180deg, var(--np-green-soft, var(--accent-dim)), var(--np-green-soft, var(--accent-dim)));
-  color: var(--accent-text);
+  color: var(--accent-ink);
   box-shadow: 0 3px 0 rgba(var(--accent-rgb), 0.14);
 }
 
@@ -8812,7 +8826,7 @@ html[data-theme="dark"][data-accent="custom"] .guided-session.fs-app.prototype-g
 html:not([data-theme="dark"])[data-accent="custom"] .guided-session.fs-app.prototype-guided-session .fs-translation-modes button.is-active {
   border-color: rgba(var(--accent-rgb), 0.42);
   background: var(--np-green-soft, var(--accent-dim));
-  color: var(--accent-text);
+  color: var(--accent-ink);
 }
 
 html[data-theme="dark"][data-accent="custom"] .guided-session.fs-app.prototype-guided-session .fs-translation-modes button.is-active {
@@ -8944,7 +8958,7 @@ html:not([data-theme="dark"])[data-accent="custom"] .guided-session.fs-app.proto
 html:not([data-theme="dark"])[data-accent="custom"] .guided-session.fs-app.prototype-guided-session .fs-shortcut-trigger[aria-expanded="true"] {
   border-color: rgba(var(--accent-rgb), 0.42);
   background: var(--np-green-soft, var(--accent-dim));
-  color: var(--accent-text);
+  color: var(--accent-ink);
 }
 
 html[data-theme="dark"][data-accent="custom"] .guided-session.fs-app.prototype-guided-session .fs-shortcut-trigger:hover {
@@ -9027,7 +9041,7 @@ html:not([data-theme="dark"])[data-accent="custom"] .guided-session.fs-app.proto
 html:not([data-theme="dark"])[data-accent="custom"] .guided-session.fs-app.prototype-guided-session .fs-stagebtn.is-done > span {
   border-color: rgba(var(--accent-rgb), 0.34);
   background: var(--np-green-soft, var(--accent-dim));
-  color: var(--accent-text);
+  color: var(--accent-ink);
   box-shadow: inset 0 1px 0 #fff, 0 5px 0 var(--np-green-soft, var(--accent-dim)), 0 11px 20px rgba(var(--accent-hover-rgb), 0.1);
 }
 
@@ -9202,24 +9216,24 @@ html[data-theme="dark"][data-accent="custom"] .guided-session.fs-app.prototype-g
 html[data-theme="dark"][data-accent="custom"] .guided-session.fs-app.prototype-guided-session .fs-flashcard-badge,
 html[data-theme="dark"][data-accent="custom"] .guided-session.fs-app.prototype-guided-session .fs-chip {
   background: var(--accent-pressed, var(--np-green-dark));
-  color: var(--accent-text);
+  color: var(--accent-pressed-ink, var(--accent-text));
 }
 
 html[data-theme="dark"][data-accent="custom"] .guided-session.fs-app.prototype-guided-session .fs-preview-route button:hover {
   background: var(--accent-pressed, var(--np-green-dark));
-  color: var(--accent-text);
+  color: var(--accent-pressed-ink, var(--accent-text));
 }
 
 html[data-theme="dark"][data-accent="custom"] .guided-session.fs-app.prototype-guided-session .fs-preview-route button.is-seen {
   background: var(--accent-pressed, var(--np-green-dark));
-  color: var(--accent-text);
+  color: var(--accent-pressed-ink, var(--accent-text));
 }
 
 html[data-theme="dark"][data-accent="custom"] .guided-session.fs-app.prototype-guided-session .fs-flashcard-language button,
 html[data-theme="dark"][data-accent="custom"] .guided-session.fs-app.prototype-guided-session .fs-listen-icon,
 html[data-theme="dark"][data-accent="custom"] .guided-session.fs-app.prototype-guided-session .fs-missing-play {
   background: var(--accent-pressed, var(--np-green-dark));
-  color: var(--accent-text);
+  color: var(--accent-pressed-ink, var(--accent-text));
 }
 
 html[data-theme="dark"][data-accent="custom"] .guided-session.fs-app.prototype-guided-session .fs-flashcard-language button:hover,
@@ -9342,23 +9356,23 @@ html[data-theme="dark"][data-accent="custom"] .guided-session.fs-app.prototype-g
 html[data-theme="dark"][data-accent="custom"] .guided-session.fs-app.prototype-guided-session .fs-preview-count,
 html[data-theme="dark"][data-accent="custom"] .guided-session.fs-app.prototype-guided-session .fs-flashcard-badge,
 html[data-theme="dark"][data-accent="custom"] .guided-session.fs-app.prototype-guided-session .fs-chip {
-  color: var(--accent-text);
+  color: var(--accent-pressed-ink, var(--accent-text));
 }
 
 html[data-theme="dark"][data-accent="custom"] .guided-session.fs-app.prototype-guided-session .fs-preview-count {
-  color: var(--accent-text);
+  color: var(--accent-pressed-ink, var(--accent-text));
 }
 
 html[data-theme="dark"][data-accent="custom"] .guided-session.fs-app.prototype-guided-session .fs-preview-count small {
-  color: var(--accent-text);
+  color: var(--accent-pressed-ink, var(--accent-text));
 }
 
 html[data-theme="dark"][data-accent="custom"] .guided-session.fs-app.prototype-guided-session .fs-preview-route button:hover {
-  color: var(--accent-text);
+  color: var(--accent-pressed-ink, var(--accent-text));
 }
 
 html[data-theme="dark"][data-accent="custom"] .guided-session.fs-app.prototype-guided-session .fs-preview-route button.is-seen {
-  color: var(--accent-text);
+  color: var(--accent-pressed-ink, var(--accent-text));
 }
 
 html[data-theme="dark"][data-accent="custom"] .guided-session.fs-app.prototype-guided-session .fs-flashcard-footer {
@@ -9372,7 +9386,7 @@ html[data-theme="dark"][data-accent="custom"] .guided-session.fs-app.prototype-g
 html[data-theme="dark"][data-accent="custom"] .guided-session.fs-app.prototype-guided-session .fs-flashcard-language button,
 html[data-theme="dark"][data-accent="custom"] .guided-session.fs-app.prototype-guided-session .fs-listen-icon,
 html[data-theme="dark"][data-accent="custom"] .guided-session.fs-app.prototype-guided-session .fs-missing-play {
-  color: var(--accent-text);
+  color: var(--accent-pressed-ink, var(--accent-text));
 }
 
 html[data-theme="dark"][data-accent="custom"] .guided-session.fs-app.prototype-guided-session .fs-preview-skip {
@@ -11988,7 +12002,7 @@ html:not([data-theme="dark"])[data-accent="custom"] .guided-session.fs-app.proto
 html:not([data-theme="dark"])[data-accent="custom"] .guided-session.fs-app.prototype-guided-session .fs-match-direction button.is-active {
   border-color: rgba(var(--accent-rgb), 0.3);
   background: var(--np-green-soft, var(--accent-dim));
-  color: var(--accent-text);
+  color: var(--accent-ink);
 }
 html[data-theme="dark"][data-accent="custom"] .guided-session.fs-app.prototype-guided-session .fs-match-direction button:hover {
   border-color: rgba(var(--accent-rgb), 0.3);
@@ -12016,7 +12030,7 @@ html:not([data-theme="dark"])[data-accent="custom"] .guided-session.fs-app.proto
 html:not([data-theme="dark"])[data-accent="custom"] .guided-session.fs-app.prototype-guided-session .fs-match-option.is-matched {
   border-color: var(--np-green-soft, var(--accent-dim));
   background: var(--np-green-soft, var(--accent-dim));
-  color: var(--accent-text);
+  color: var(--accent-ink);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.58),
     inset 0 1px 0 rgba(255, 255, 255, 0.82),
     0 4px 0 var(--np-green-soft, var(--accent-dim)),

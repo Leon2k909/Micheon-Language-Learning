@@ -115,6 +115,7 @@ export const ES: Record<string, string> = {
   "Earn coins by learning, then use them on profile pins.": "Gana monedas aprendiendo y úsalas en chapas de perfil.",
   "Earn coins through learning and collect profile pins.": "Gana monedas aprendiendo y colecciona chapas de perfil.",
   "Easier on tired eyes": "Más suave para los ojos cansados",
+  "Best in a bright room": "Ideal en una habitación luminosa",
   "Edit profile name": "Editar el nombre del perfil",
   "English": "Inglés",
   "English spelling and accent": "Ortografía y acento del inglés",
