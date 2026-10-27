@@ -4,7 +4,7 @@ import { PlacementTest } from "@/components/PlacementTest";
 import GuidedSession from "@/GuidedSession";
 import { buildApiPartFromResolved } from "@/lib/api";
 import { orderParts } from "@/lib/curriculum";
-import { getSittingLevelFilters, getSittingOrder, passesSittingLevel, similarMates, sittingComparator } from "@/lib/sittingOrder";
+import { getSittingLevelFilters, getSittingPlan, passesSittingLevel, similarMates, sittingComparator } from "@/lib/sittingOrder";
 import { buildExchangeIndex, exchangeChain, exchangeKey, exchangePlace } from "@/lib/exchanges";
 import { buildBundledParts, buildTatoebaParts, filterPartsForLearningDirection } from "@/lib/contentBank";
 import { buildCustomParts, isCustomPartKey, CUSTOM_CONTENT_EVENT } from "@/lib/customContent";
@@ -970,11 +970,11 @@ export default function GuidedLearningSession() {
       const lessonContent = getLessonContent();
       // How this sitting is put together: the course's pick unless the
       // learner chose an order, and every level unless they narrowed it.
-      const sittingOrder = getSittingOrder();
+      const sittingPlan = getSittingPlan();
       const sittingLevels = getSittingLevelFilters();
       // Conversation order needs to know what answers what: the packs'
       // dialogues, indexed by sentence. Built only when asked for.
-      const exchanges = sittingOrder === "conversation" ? buildExchangeIndex(activeParts) : null;
+      const exchanges = sittingPlan.grouping === "conversation" ? buildExchangeIndex(activeParts) : null;
       if (lessonContent === "words") {
         const rankedWords = rankWordCatalog(buildWordCatalog(activeParts), corpusIndex);
         let wordSteps: any[] = buildWordSitting(rankedWords, reviewState);
@@ -1274,10 +1274,10 @@ export default function GuidedLearningSession() {
         }),
         chainBaseScores
       );
-      // The learner's order, or the course's pick. Every order breaks ties
-      // on the pick and then the curriculum, so "level first" is the course's
-      // pick within a level rather than a different course.
-      candidates.sort(sittingComparator(sittingOrder));
+      // The learner's ranked orders, or the course's pick. Every plan breaks
+      // ties on the pick and then the curriculum, so "level first" is the
+      // course's pick within a level rather than a different course.
+      candidates.sort(sittingComparator(sittingPlan, candidates));
 
       // The lead sentence is the best-scoring one anywhere. The rest of the
       // fresh half prefers its pack-mates so the lesson still feels coherent,
@@ -1328,7 +1328,7 @@ export default function GuidedLearningSession() {
       // Similar sentences together: the cards that open the way the lead
       // does come straight after its chain, ahead of its pack-mates. A lead
       // with no mates leaves the sitting as the course's pick.
-      const patternMates = sittingOrder === "similar" && lead
+      const patternMates = sittingPlan.grouping === "similar" && lead
         ? similarMates(lead, candidates).filter((candidate) => !inChain.has(candidate) && !pinnedChains.includes(candidate))
         : [];
       // Conversation order: the reply to the lead, then the reply to that,
@@ -1395,7 +1395,7 @@ export default function GuidedLearningSession() {
       // way they already give way to words. A backlog of ten due reviews
       // used to leave one fresh slot — the question and never its reply;
       // with words in the sitting it did so from four.
-      const mates = sittingOrder === "conversation" ? exchangeMates : sittingOrder === "similar" ? patternMates : [];
+      const mates = sittingPlan.grouping === "conversation" ? exchangeMates : sittingPlan.grouping === "similar" ? patternMates : [];
       if (mates.length > 0) {
         sentenceSlots.freshSlots = Math.max(sentenceSlots.freshSlots, Math.min(NEW_PER_LESSON_TARGET, 1 + mates.length));
       }

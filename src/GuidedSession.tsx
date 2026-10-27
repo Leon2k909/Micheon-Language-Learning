@@ -122,7 +122,7 @@ import { ui, uiOr, uiFmt, uiNumber } from "@/lib/i18n";
 import { cefrBadgeLabel } from "@/lib/cefr";
 import { ContinueLearningSettings } from "@/components/duo/ContinueLearningSettings";
 import { germanSoundsAlike } from "@/lib/germanSoundAlike";
-import { getSittingOrder, SITTING_ORDER_LABELS } from "@/lib/sittingOrder";
+import { getSittingPlan, sittingPlanLabel } from "@/lib/sittingOrder";
 import { ArrowLeftRight, Settings2, Volume2, ChevronLeft, ChevronRight, ChevronDown, CheckCircle2, X, BookOpen, ArrowRight, MessageSquareQuote, RotateCcw, Languages, GripVertical, Eye, EyeOff, Lightbulb, Keyboard, ListChecks, MousePointerClick, SkipForward } from "lucide-react";
 // TTS now runs through the /api/tts server (premium Microsoft voices in every
 // browser) with an automatic fall back to the browser's built-in speechSynthesis.
@@ -6059,7 +6059,7 @@ function SessionFlashcardPreview({
           <div className="fs-preview-summary" aria-label={ui("Lesson preview")}>
             <span><BookOpen className="h-4 w-4" />{cards.length} {ui("Phrases")}</span>
             <span><Languages className="h-4 w-4" />{ui(sides.target.label)} + {ui(sides.meaning.label)}</span>
-            <span><ListChecks className="h-4 w-4" />{ui(SITTING_ORDER_LABELS[getSittingOrder()])}</span>
+            <span><ListChecks className="h-4 w-4" />{sittingPlanLabel(getSittingPlan(), ui)}</span>
           </div>
         </div>
         <span className="fs-preview-count">
@@ -6582,9 +6582,18 @@ export default function GuidedSession({ steps, onComplete, onCancel, onGradeItem
   const reduceMotion = useReducedMotion() || effectsReduced();
   const [guidedBackground, setGuidedBackground] = useState<GuidedBackground>(() => getGuidedBackground());
   // The gear beside mute and close: how Continue learning is put together.
-  // A sitting is built once, on the way in, so a change here is for the next
-  // one — the panel says so rather than pretending to reshuffle this one.
   const [sessionSettingsOpen, setSessionSettingsOpen] = useState(false);
+  // Orders combine, so a learner taps several in a row: the panel stays open
+  // while they choose, and the sitting is rebuilt once, when it closes. It
+  // used to close and rebuild on the first tap, which left a ranking of two
+  // needing the panel opened twice and the sitting built twice.
+  const sessionSettingsChangedRef = useRef(false);
+  useEffect(() => {
+    if (sessionSettingsOpen || !sessionSettingsChangedRef.current) return;
+    sessionSettingsChangedRef.current = false;
+    onRebuildSitting?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionSettingsOpen]);
   // The panel hangs under the header, wherever the header ends: measured,
   // because the header's height depends on the window and on Electron's
   // title bar above it, and a fixed offset overlapped it on both counts.
@@ -7263,12 +7272,13 @@ export default function GuidedSession({ steps, onComplete, onCancel, onGradeItem
               </button>
             </div>
             {/*
-              A change rebuilds the sitting on the spot rather than waiting
-              for the next one: the learner pressed an order to see it, and a
-              note saying "next time" was the panel apologising for not doing
-              its job. Grades already given were saved as they were given.
+              A change rebuilds the sitting as soon as the panel closes rather
+              than waiting for the next one: the learner pressed an order to
+              see it, and a note saying "next time" was the panel apologising
+              for not doing its job. Grades already given were saved as they
+              were given.
             */}
-            <ContinueLearningSettings onChange={() => { setSessionSettingsOpen(false); onRebuildSitting?.(); }} />
+            <ContinueLearningSettings onChange={() => { sessionSettingsChangedRef.current = true; }} />
           </div>
         </div>
       )}

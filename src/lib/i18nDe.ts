@@ -5229,4 +5229,5 @@ export const DE: Record<string, string> = {
   "Albanian tip: there is no infinitive — I want to go is “dua të shkoj”, literally I want that I go.": "Albanisch-Tipp: Es gibt keinen Infinitiv — ich will gehen heißt „dua të shkoj“, wörtlich ich will, dass ich gehe.",
   "Check the capital letters: a sentence starts with one, and in German so does every noun, and Sie, Ihnen and Ihr when they mean you.": "Achte auf die Großschreibung: Ein Satz beginnt groß, und im Deutschen schreibt man jedes Nomen groß, ebenso Sie, Ihnen und Ihr in der höflichen Anrede.",
   "Check the capital letters.": "Achte auf die Großschreibung.",
+  "Tap more than one to combine them: the numbers show which counts first, and Conversation order or Similar sentences together can go on top of any of them.": "Tippe mehrere an, um sie zu kombinieren: Die Zahlen zeigen, was zuerst zählt, und Gesprächsreihenfolge oder Ähnliche Sätze zusammen lassen sich mit jeder davon verbinden.",
 };

@@ -4,10 +4,13 @@ import { getLearningDirection } from "@/lib/direction";
 import { ui } from "@/lib/i18n";
 import {
   getSittingLevelFilters,
-  getSittingOrder,
+  getSittingPlan,
   setSittingLevelFilters,
-  setSittingOrder,
+  setSittingPlan,
+  sittingButtonState,
+  toggleSittingPlan,
   type SittingOrder,
+  type SittingPlan,
 } from "@/lib/sittingOrder";
 import { cn } from "@/lib/utils";
 
@@ -50,11 +53,11 @@ export function ContinueLearningSettings({ onChange }: {
   onChange?: () => void;
 } = {}) {
   const direction = getLearningDirection();
-  const [order, setOrder] = useState<SittingOrder>(() => getSittingOrder(direction));
+  const [plan, setPlan] = useState<SittingPlan>(() => getSittingPlan(direction));
   const [levels, setLevels] = useState<Set<CefrStep>>(() => getSittingLevelFilters(direction));
 
   const chooseOrder = (value: SittingOrder) => {
-    setOrder(setSittingOrder(value, direction));
+    setPlan(setSittingPlan(toggleSittingPlan(plan, value), direction));
     onChange?.();
   };
   const chooseLevels = (next: Iterable<CefrStep>) => {
@@ -93,24 +96,41 @@ export function ContinueLearningSettings({ onChange }: {
           whatever the window is doing, and it's the same layout desktop
           already showed at this width — nothing here is untested.
         */}
+        <p className="mt-1 text-[11px] font-semibold leading-4 text-[var(--text-3)]">
+          {ui("Tap more than one to combine them: the numbers show which counts first, and Conversation order or Similar sentences together can go on top of any of them.")}
+        </p>
+        {/*
+          Buttons, not radios: more than one can be on. A sort that is part of
+          a ranking of two or more carries its place as a small number, so
+          "Most common first ¹, Easiest first ²" reads as what it does.
+        */}
         <div
           aria-label={ui("Order")}
           className="mt-2 grid grid-cols-3 gap-1.5 rounded-2xl border border-[var(--border)] bg-[var(--surface-1)] p-1"
-          role="radiogroup"
+          role="group"
         >
           {ORDER_CHOICES.map(([value, label]) => {
-            const selected = order === value;
+            const { on, rank } = sittingButtonState(plan, value);
             return (
               <button
-                aria-checked={selected}
-                className={cn(CHOICE, selected ? CHOICE_ON : CHOICE_OFF)}
+                aria-pressed={on}
+                className={cn(CHOICE, "relative", on ? CHOICE_ON : CHOICE_OFF)}
                 data-testid={`sitting-order-${value}`}
                 key={value}
                 onClick={() => chooseOrder(value)}
-                role="radio"
                 type="button"
               >
+                {rank !== null && (
+                  <span
+                    aria-hidden
+                    className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-[var(--text-1)] px-1 text-[10px] font-black leading-none text-[var(--surface-1)]"
+                    data-testid={`sitting-order-rank-${value}`}
+                  >
+                    {rank}
+                  </span>
+                )}
                 {ui(label)}
+                {rank !== null && <span className="sr-only">{` (${rank})`}</span>}
               </button>
             );
           })}

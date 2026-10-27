@@ -4974,4 +4974,5 @@ export const PL: Record<string, string> = {
   "Albanian tip: there is no infinitive — I want to go is “dua të shkoj”, literally I want that I go.": "Wskazówka z albańskiego: nie ma bezokolicznika — chcę iść to „dua të shkoj”, czyli dosłownie chcę + idę.",
   "Check the capital letters: a sentence starts with one, and in German so does every noun, and Sie, Ihnen and Ihr when they mean you.": "Sprawdź wielkie litery: zdanie zaczyna się wielką literą, a w niemieckim także każdy rzeczownik oraz Sie, Ihnen i Ihr w formie grzecznościowej.",
   "Check the capital letters.": "Sprawdź wielkie litery.",
+  "Tap more than one to combine them: the numbers show which counts first, and Conversation order or Similar sentences together can go on top of any of them.": "Dotknij kilku, aby je połączyć: numery pokazują, co liczy się najpierw, a Kolejność rozmowy lub Podobne zdania razem można dodać do każdej z nich.",
 };

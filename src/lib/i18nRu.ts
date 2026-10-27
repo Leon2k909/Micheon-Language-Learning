@@ -4510,4 +4510,5 @@ export const RU: Record<string, string> = {
   "Albanian tip: there is no infinitive — I want to go is “dua të shkoj”, literally I want that I go.": "Совет по албанскому: инфинитива нет — «хочу пойти» звучит как «dua të shkoj», то есть «хочу + иду».",
   "Check the capital letters: a sentence starts with one, and in German so does every noun, and Sie, Ihnen and Ihr when they mean you.": "Проверь заглавные буквы: предложение начинается с большой буквы, а в немецком так же пишется каждое существительное, как и Sie, Ihnen и Ihr в вежливом обращении.",
   "Check the capital letters.": "Проверь заглавные буквы.",
+  "Tap more than one to combine them: the numbers show which counts first, and Conversation order or Similar sentences together can go on top of any of them.": "Нажми несколько, чтобы их совместить: цифры показывают, что считается первым, а Порядок разговора или Похожие предложения вместе можно добавить к любому из них.",
 };

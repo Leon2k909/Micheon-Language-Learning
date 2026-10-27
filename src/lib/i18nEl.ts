@@ -4304,4 +4304,5 @@ export const EL: Record<string, string> = {
   "Greek and Latin": "Ελληνικά και λατινικά",
   "Check the capital letters: a sentence starts with one, and in German so does every noun, and Sie, Ihnen and Ihr when they mean you.": "Έλεγξε τα κεφαλαία: μια πρόταση ξεκινά με κεφαλαίο, και στα γερμανικά κάθε ουσιαστικό επίσης, όπως και τα Sie, Ihnen και Ihr στον πληθυντικό ευγενείας.",
   "Check the capital letters.": "Έλεγξε τα κεφαλαία.",
+  "Tap more than one to combine them: the numbers show which counts first, and Conversation order or Similar sentences together can go on top of any of them.": "Πάτα περισσότερα από ένα για να τα συνδυάσεις: οι αριθμοί δείχνουν ποιο μετράει πρώτο, και η Σειρά συνομιλίας ή οι Παρόμοιες προτάσεις μαζί προστίθενται σε οποιοδήποτε από αυτά.",
 };

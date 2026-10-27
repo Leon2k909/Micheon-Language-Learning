@@ -4311,4 +4311,5 @@ export const SQ: Record<string, string> = {
   "Hi, {name}!": "Përshëndetje, {name}!",
   "Check the capital letters: a sentence starts with one, and in German so does every noun, and Sie, Ihnen and Ihr when they mean you.": "Kontrollo shkronjat e mëdha: fjalia nis me shkronjë të madhe, dhe në gjermanisht po ashtu çdo emër, si edhe Sie, Ihnen dhe Ihr në formën e mirësjelljes.",
   "Check the capital letters.": "Kontrollo shkronjat e mëdha.",
+  "Tap more than one to combine them: the numbers show which counts first, and Conversation order or Similar sentences together can go on top of any of them.": "Prek më shumë se një për t'i kombinuar: numrat tregojnë cili llogaritet i pari, dhe Rendi i bisedës ose Fjalitë e ngjashme bashkë mund t'i shtohen secilit prej tyre.",
 };

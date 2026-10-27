@@ -99,7 +99,7 @@ check("the picker and the library agree on what every order is called",
 check("every order the library keeps has a name",
   O.SITTING_ORDERS.every((value) => Boolean(O.SITTING_ORDER_LABELS[value])));
 check("the lesson says which order built the sitting",
-  /SITTING_ORDER_LABELS\[getSittingOrder\(\)\]/u.test(read("src/GuidedSession.tsx")),
+  /sittingPlanLabel\(getSittingPlan\(\), ui\)/u.test(read("src/GuidedSession.tsx")),
   "the sitting never says how it was put together, so a setting that did not apply looks like one that does not work");
 const explanation = panel.slice(panel.indexOf('ui("The course\'s pick'), panel.indexOf('aria-label={ui("Order")}'));
 for (const [, label] of choices) {
@@ -114,7 +114,10 @@ const b1best = c(100, 1, "B1", "Ich möchte mich beschweren.", 1);
 const common = c(200, 2, "A2", "Ich habe Hunger.", 9);
 const short = c(250, 3, "A2", "Danke.", 3);
 const cands = [b1best, common, short, a1worse];
-const by = (name) => [...cands].sort(O.sittingComparator(name)).map((x) => x.de);
+// One button pressed on an empty plan: the plan that button alone makes.
+const plan = (...orders) => orders.reduce((p, order) => O.toggleSittingPlan(p, order), O.DEFAULT_SITTING_PLAN);
+const sortBy = (p, list = cands) => [...list].sort(O.sittingComparator(p, list)).map((x) => x.de);
+const by = (name) => sortBy(plan(name));
 check("the course's pick is the score", by("course")[0] === b1best.de);
 check("easiest first takes a worse-scoring A1 before the best-scoring B1",
   by("level")[0] === a1worse.de && by("level").indexOf(b1best.de) === cands.length - 1);
@@ -127,11 +130,63 @@ check("and its mates are the cards that open the same way, and only those",
   mates.length === 1 && mates[0] === a1worse.de);
 check("a single-word lead has no mates", O.similarMates(short, cands).length === 0);
 
+// ── orders combine ──────────────────────────────────────────────────────────
+// Ranked sorts: the first decides, the next settles what it leaves level. A
+// continuous measure that is not last compares in bands, or the next sort
+// would never get a tie to settle.
+const band = (n) => Array.from({ length: n }, (_, i) => i);
+const pool = [
+  // The commonest fifth holds a B1 that is the very commonest, and an A1 just behind it.
+  ...band(2).map((i) => c(500 + i, 10 + i, i ? "A1" : "B1", `Gemeinsam ${i} hier.`, i ? 95 : 99)),
+  // Everything else is far rarer, and A1.
+  ...band(8).map((i) => c(100 + i, 20 + i, "A1", `Selten ${i} hier.`, 10 - i)),
+];
+const commonThenLevel = sortBy(plan("common", "level"), pool);
+check("most common, then easiest: the easiest of the commonest fifth comes first",
+  commonThenLevel[0] === "Gemeinsam 1 hier." && commonThenLevel[1] === "Gemeinsam 0 hier.",
+  commonThenLevel.slice(0, 3).join(" | "));
+check("and the commonest fifth still comes before anything rarer",
+  commonThenLevel.slice(0, 2).every((de) => de.startsWith("Gemeinsam")));
+check("most common alone is exact: the commonest card leads whatever its level",
+  sortBy(plan("common"), pool)[0] === "Gemeinsam 0 hier.");
+const levelThenCommon = sortBy(plan("level", "common"), pool);
+check("easiest, then most common: all of A1 first, its commonest leading",
+  levelThenCommon[0] === "Gemeinsam 1 hier." && levelThenCommon[levelThenCommon.length - 1] === "Gemeinsam 0 hier.");
+check("a ranked sort pressed again leaves, and the ones after it move up",
+  JSON.stringify(O.toggleSittingPlan(plan("common", "level", "shortest"), "level").sorts) === JSON.stringify(["common", "shortest"]));
+check("shortest and longest cannot both hold; the later choice wins",
+  JSON.stringify(plan("shortest", "common", "longest").sorts) === JSON.stringify(["common", "longest"]));
+const withGrouping = plan("common", "conversation");
+check("a grouping sits on top of any ranking, and only one is on at a time",
+  withGrouping.grouping === "conversation" && JSON.stringify(withGrouping.sorts) === JSON.stringify(["common"])
+  && O.toggleSittingPlan(withGrouping, "similar").grouping === "similar"
+  && O.toggleSittingPlan(withGrouping, "conversation").grouping === null);
+check("the course's pick clears everything",
+  JSON.stringify(O.toggleSittingPlan(withGrouping, "course")) === JSON.stringify(O.DEFAULT_SITTING_PLAN));
+const twoRanked = plan("common", "level");
+check("the buttons show the ranking: a number only when two or more are ranked",
+  O.sittingButtonState(twoRanked, "common").rank === 1 && O.sittingButtonState(twoRanked, "level").rank === 2
+  && O.sittingButtonState(plan("common"), "common").rank === null && O.sittingButtonState(twoRanked, "course").on === false
+  && O.sittingButtonState(O.DEFAULT_SITTING_PLAN, "course").on === true);
+const named = (p) => O.sittingPlanLabel(p, (label) => label);
+check("the lesson names a combined plan the way it was built",
+  named(plan("common", "level", "conversation")) === "Most common first → Easiest first (A1 → C1) · Conversation order"
+  && named(O.DEFAULT_SITTING_PLAN) === "The course's pick" && named(plan("similar")) === "Similar sentences together",
+  named(plan("common", "level", "conversation")));
+
 // ── what sticks ─────────────────────────────────────────────────────────────
-check("the order is remembered per course, and an unknown value falls back",
-  O.setSittingOrder("level", "de-en") === "level" && O.getSittingOrder("de-en") === "level"
-  && O.getSittingOrder("pl-en") === O.DEFAULT_SITTING_ORDER
-  && O.setSittingOrder("nonsense", "de-en") === O.DEFAULT_SITTING_ORDER);
+const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+O.setSittingPlan(plan("common", "level", "conversation"), "de-en");
+check("the plan is remembered per course, whole",
+  same(O.getSittingPlan("de-en"), { sorts: ["common", "level"], grouping: "conversation" })
+  && same(O.getSittingPlan("pl-en"), O.DEFAULT_SITTING_PLAN));
+check("a stored plan is cleaned on the way in: unknown sorts dropped, repeats once",
+  same(O.setSittingPlan({ sorts: ["nonsense", "level", "level"], grouping: "sideways" }, "de-en"), { sorts: ["level"], grouping: null }));
+// A learner who chose one order before orders combined keeps it.
+localStorage.setItem("gl-sitting-order-v1:fr-en", "similar");
+localStorage.setItem("gl-sitting-order-v1:es-en", "longest");
+check("a single order chosen before orders combined is read as the plan it meant",
+  same(O.getSittingPlan("fr-en"), { sorts: [], grouping: "similar" }) && same(O.getSittingPlan("es-en"), { sorts: ["longest"], grouping: null }));
 const kept = O.setSittingLevelFilters(["a1", "b2", "zz"], "de-en");
 check("levels are remembered as a set, filtered to real steps",
   kept.size === 2 && kept.has("a1") && kept.has("b2") && O.getSittingLevelFilters("de-en").has("b2"));
@@ -140,8 +195,9 @@ check("no levels chosen means every level; chosen levels admit only their own",
 
 // ── the sitting reads it ────────────────────────────────────────────────────
 const sitting = read("src/guided_learning_session.tsx");
-check("the sitting sorts its fresh candidates by the chosen order",
-  /candidates\.sort\(sittingComparator\(sittingOrder\)\)/u.test(sitting));
+check("the sitting sorts its fresh candidates by the chosen plan, banded over those candidates",
+  /candidates\.sort\(sittingComparator\(sittingPlan, candidates\)\)/u.test(sitting)
+  && /sittingPlan\.grouping === "conversation" \? buildExchangeIndex/u.test(sitting));
 check("and drops fresh material outside the chosen levels before scoring it",
   /passesSittingLevel\(item\.level \?\? p\.level, sittingLevels\)/u.test(sitting));
 check("similar sentences follow the lead ahead of its pack-mates",
@@ -157,7 +213,8 @@ check("and the gear opens the same panel the Learn page shows",
 // see it; "applies from your next sitting" was the panel not doing its job.
 check("the panel says a change rebuilds the sitting, and does",
   session.includes('ui("Changing this rebuilds the sitting from the start.")')
-  && /<ContinueLearningSettings onChange=\{\(\) => \{[^}]*onRebuildSitting\?\.\(\);/u.test(session)
+  && /<ContinueLearningSettings onChange=\{\(\) => \{ sessionSettingsChangedRef\.current = true; \}\} \/>/u.test(session)
+  && /if \(sessionSettingsOpen \|\| !sessionSettingsChangedRef\.current\) return;\s*sessionSettingsChangedRef\.current = false;\s*onRebuildSitting\?\.\(\);/u.test(session)
   && /onRebuildSitting=\{\(\) => \{[\s\S]{0,400}startSessionRef\.current\(lastRequestedPartRef\.current\)/u.test(sitting));
 check("the panel hangs under the header wherever the header ends, not at a fixed offset",
   /sessionHeaderRef\.current\?\.getBoundingClientRect\(\)\.bottom/u.test(session)
@@ -251,11 +308,11 @@ const sittingCandidates = buildCatalog(parts).map((item, index) => {
   };
 });
 const freshSitting = (seenCount) => {
-  const inCourseOrder = [...sittingCandidates].sort(O.sittingComparator("course"));
+  const inCourseOrder = [...sittingCandidates].sort(O.sittingComparator(O.DEFAULT_SITTING_PLAN, sittingCandidates));
   const seen = new Set(inCourseOrder.slice(0, seenCount).map((c) => exchangeKey(c.de)));
   const candidates = [...sittingCandidates]
     .filter((c) => !seen.has(exchangeKey(c.de)))
-    .sort(O.sittingComparator("conversation"));
+    .sort(O.sittingComparator(plan("conversation"), sittingCandidates));
   const byKey = new Map(candidates.map((c) => [exchangeKey(c.de), c]));
   const lead = candidates.find((c) => exchangeChain(c.de, exchanges, (k) => byKey.has(k), 1).length > 0)
     ?? candidates[0];
@@ -316,7 +373,7 @@ check("the first exchange really is a question and its reply",
 // around the exchange — a preference, so a sitting with nothing fitting is
 // exactly what it was.
 check("the fresh slots hold the whole exchange (or run of similar sentences), reviews give way",
-  /const mates = sittingOrder === "conversation" \? exchangeMates : sittingOrder === "similar" \? patternMates : \[\];/u.test(sitting)
+  /const mates = sittingPlan\.grouping === "conversation" \? exchangeMates : sittingPlan\.grouping === "similar" \? patternMates : \[\];/u.test(sitting)
   && /sentenceSlots\.freshSlots = Math\.max\(sentenceSlots\.freshSlots, Math\.min\(NEW_PER_LESSON_TARGET, 1 \+ mates\.length\)\)/u.test(sitting)
   && /const sittingRoom = Math\.max\(1, 6 - fresh\.length - mixedWords\.length\)/u.test(sitting));
 check("reviews from the lead's conversation are preferred, then dealt in dialogue order around the exchange",

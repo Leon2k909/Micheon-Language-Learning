@@ -4571,4 +4571,5 @@ export const ES: Record<string, string> = {
   "Albanian tip: there is no infinitive — I want to go is “dua të shkoj”, literally I want that I go.": "Consejo de albanés: no hay infinitivo — quiero ir se dice “dua të shkoj”, literalmente quiero que yo vaya.",
   "Check the capital letters: a sentence starts with one, and in German so does every noun, and Sie, Ihnen and Ihr when they mean you.": "Revisa las mayúsculas: una frase empieza con mayúscula, y en alemán también cada sustantivo, y Sie, Ihnen e Ihr cuando significan «usted».",
   "Check the capital letters.": "Revisa las mayúsculas.",
+  "Tap more than one to combine them: the numbers show which counts first, and Conversation order or Similar sentences together can go on top of any of them.": "Toca más de una para combinarlas: los números muestran cuál cuenta primero, y Orden de conversación o Frases parecidas juntas se pueden sumar a cualquiera de ellas.",
 };
