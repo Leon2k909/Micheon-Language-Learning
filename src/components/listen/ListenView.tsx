@@ -31,6 +31,7 @@ import { loadGradeStore } from "@/lib/activity";
 import {
   AUDIO_SETTINGS_EVENT,
   getAudioSettings,
+  getTtsAudioVolume,
   isMasterAudioSilent,
   isTtsLanguageMuted,
   setMasterAudioVolume,
@@ -141,6 +142,18 @@ import {
 } from "@/lib/translations";
 
 type ListenMediaCommand = "previous" | "toggle" | "play" | "pause" | "next";
+
+/**
+ * How long to wait before asking for a card again when none of it was heard.
+ *
+ * A card whose every clip failed used to stop the player on the spot, with
+ * nothing on screen but the Play button: the learner came back to a paused
+ * card and no way to tell why. Synthesis fails in bursts — the service turns
+ * away handshakes for a few seconds at a time — so the same card usually
+ * plays a moment later. One entry per retry; once they are spent the player
+ * stops and says so.
+ */
+const LISTEN_SILENT_RETRY_MS = [1_500, 4_000, 8_000];
 
 type ListenReviewNotice = {
   message: string;
@@ -732,6 +745,10 @@ export function ListenView({ active, apiParts, learningDirection, onOpen, profil
   const [yourTurn, setYourTurn] = useState(false);
   const [audioSettings, setAudioSettings] = useState<AudioSettings>(getAudioSettings);
   const [graded, setGraded] = useState<"know" | "difficult" | null>(null);
+  /** The voice failed on this card: being asked again, or given up on. */
+  const [voiceTrouble, setVoiceTrouble] = useState<"retrying" | "failed" | null>(null);
+  const [silentRetry, setSilentRetry] = useState(0);
+  const silentRetriesRef = useRef(0);
   /**
    * Which items this sitting has marked, and what the record looked like
    * first. Two jobs: the buttons stay lit for a mark you made, so stepping
@@ -956,7 +973,10 @@ export function ListenView({ active, apiParts, learningDirection, onOpen, profil
     let advanceTimer: number | null = null;
     let heardSpeech = false;
     const markSpeechStarted = (event: Event) => {
-      if ((event as CustomEvent<boolean>).detail === true) heardSpeech = true;
+      if ((event as CustomEvent<boolean>).detail !== true) return;
+      heardSpeech = true;
+      silentRetriesRef.current = 0;
+      setVoiceTrouble(null);
     };
     window.addEventListener(TTS_SPEAKING_EVENT, markSpeechStarted);
 
@@ -991,6 +1011,23 @@ export function ListenView({ active, apiParts, learningDirection, onOpen, profil
       window.removeEventListener(TTS_SPEAKING_EVENT, markSpeechStarted);
       if (runRef.current !== run) return;
       if (!heardSpeech) {
+        // Nothing was meant to be heard (every voice muted): stop, as before.
+        // Otherwise the voice failed, and the card is asked for again before
+        // the player gives up on it — advancing instead would race silently
+        // through the queue for as long as the service is down.
+        const audible = sequence.some((clip) => getTtsAudioVolume(clip.lang) > 0);
+        const attempt = silentRetriesRef.current;
+        if (audible && attempt < LISTEN_SILENT_RETRY_MS.length) {
+          silentRetriesRef.current = attempt + 1;
+          setVoiceTrouble("retrying");
+          advanceTimer = window.setTimeout(() => {
+            if (runRef.current !== run) return;
+            setSilentRetry((current) => current + 1);
+          }, LISTEN_SILENT_RETRY_MS[attempt]);
+          return;
+        }
+        silentRetriesRef.current = 0;
+        setVoiceTrouble(audible ? "failed" : null);
         setPlaying(false);
         return;
       }
@@ -1009,7 +1046,7 @@ export function ListenView({ active, apiParts, learningDirection, onOpen, profil
       setYourTurn(false);
       stopTts();
     };
-  }, [playing, playhead, targetRepeats, meaningRepeats, languageOrder, languageGapMs, nextCardDelayMs, item?.id, meaningLang, targetLang, queue.length, petBilingualCaptions, petCaptionsAvailable, petSpeak]);
+  }, [playing, playhead, silentRetry, targetRepeats, meaningRepeats, languageOrder, languageGapMs, nextCardDelayMs, item?.id, meaningLang, targetLang, queue.length, petBilingualCaptions, petCaptionsAvailable, petSpeak]);
 
   useEffect(() => () => {
     runRef.current += 1;
@@ -1026,9 +1063,15 @@ export function ListenView({ active, apiParts, learningDirection, onOpen, profil
     gradeAdvanceTimerRef.current = null;
   };
 
+  const forgetVoiceTrouble = () => {
+    silentRetriesRef.current = 0;
+    setVoiceTrouble(null);
+  };
+
   const pause = () => {
     runRef.current += 1;
     stopTts();
+    forgetVoiceTrouble();
     setPlaying(false);
   };
 
@@ -1061,6 +1104,7 @@ export function ListenView({ active, apiParts, learningDirection, onOpen, profil
   const beginPlayback = () => {
     reviewWasPlayingRef.current = false;
     closeReviewPanel(false);
+    forgetVoiceTrouble();
     setSessionActivated(true);
     setPlaying(true);
   };
@@ -1071,6 +1115,7 @@ export function ListenView({ active, apiParts, learningDirection, onOpen, profil
     runRef.current += 1;
     stopTts();
     setGraded(null);
+    forgetVoiceTrouble();
     reviewWasPlayingRef.current = false;
     closeReviewPanel(false);
   };
@@ -2090,6 +2135,14 @@ export function ListenView({ active, apiParts, learningDirection, onOpen, profil
                     ))}
                   </div>
                 </section>
+              </div>
+            )}
+
+            {voiceTrouble && (
+              <div className="mt-4 rounded-xl bg-[var(--surface-2)] px-3 py-2 text-center text-xs font-black text-[var(--text-2)]" data-testid="listen-voice-trouble" role="status">
+                {voiceTrouble === "retrying"
+                  ? ui("The voice did not come through. Trying this card again…")
+                  : ui("The voice could not be reached, so Listen paused here. Press Play audio to try again.")}
               </div>
             )}
 

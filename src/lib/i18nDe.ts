@@ -2320,6 +2320,8 @@ export const DE: Record<string, string> = {
   "Listen player": "Hörmodus-Player",
   "Playing in the background": "Läuft im Hintergrund",
   "Listen is paused": "Hörmodus pausiert",
+  "The voice did not come through. Trying this card again…": "Die Stimme kam nicht durch. Diese Karte wird noch einmal versucht …",
+  "The voice could not be reached, so Listen paused here. Press Play audio to try again.": "Die Stimme war nicht erreichbar, deshalb hat der Hörmodus hier pausiert. Drücke „Abspielen“, um es erneut zu versuchen.",
   "Previous item": "Vorheriger Inhalt",
   "Next item": "Nächster Inhalt",
   "Close Listen player": "Hörmodus-Player schließen",

@@ -48,6 +48,7 @@ function speechPage() {
   const SILENCE_TIMEOUT_MS = 5_000;
   const OPEN_TIMEOUT_MS = 4_000;
   const COOLDOWN_STEPS_MS = [500, 1_000, 2_000, 4_000, 8_000];
+  const MIN_TURN_MS = 4_000;
 
   let socket = null;
   let openedAt = 0;
@@ -178,8 +179,15 @@ function speechPage() {
   }
 
   // One clip at a time over the one socket, in the order they were asked for.
+  //
+  // The deadline is stamped when the server takes the clip, but the server
+  // hands over three at once and they wait here in line. Behind a clip that
+  // spent its budget on refused handshakes, the next ones reached the front
+  // with their deadline already gone and failed without a single attempt —
+  // the current card's line along with the next card's warm-up. So a clip at
+  // the front always gets a fair turn of its own, whatever its stamp says.
   window.micheonSpeak = (job) => {
-    const run = queue.then(() => speak(job));
+    const run = queue.then(() => speak({ ...job, deadline: Math.max(job.deadline, Date.now() + MIN_TURN_MS) }));
     queue = run.catch(() => {});
     return run;
   };
