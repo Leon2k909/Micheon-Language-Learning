@@ -1298,6 +1298,8 @@ export const RU: Record<string, string> = {
   "Learning options": "Настройки обучения",
   "Listen carefully": "Слушай внимательно",
   "Listen is paused": "Режим прослушивания на паузе",
+  "The voice did not come through. Trying this card again…": "Голос не прозвучал. Пробую эту карточку ещё раз…",
+  "The voice could not be reached, so Listen paused here. Press Play audio to try again.": "Не удалось получить голос, поэтому прослушивание остановлено здесь. Нажмите «Воспроизвести», чтобы попробовать снова.",
   "Loading lessons…": "Загрузка уроков…",
   "Mark all as read": "Отметить всё прочитанным",
   "Messages & voice": "Сообщения и голос",

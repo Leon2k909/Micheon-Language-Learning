@@ -2146,6 +2146,13 @@ check("silent playback is detected from a real start event, not a duration guess
   view.includes("TTS_SPEAKING_EVENT")
   && view.includes("if (!heardSpeech)")
   && !view.includes("startedAt < 600"));
+check("a card the voice failed on is asked for again, and a stop says why",
+  view.includes("LISTEN_SILENT_RETRY_MS")
+  && view.includes("setSilentRetry((current) => current + 1)")
+  && view.includes("sequence.some((clip) => getTtsAudioVolume(clip.lang) > 0)")
+  && view.includes('data-testid="listen-voice-trouble"'));
+check("a clip queued behind a slow one still gets a turn of its own",
+  read("electron/speechWorker.js").includes("Math.max(job.deadline, Date.now() + MIN_TURN_MS)"));
 check("grading uses the damped listen path, not the lesson path",
   view.includes("recordListenGrade(") && !view.includes("recordDeclaredKnown") && !view.includes("setItemStatus("));
 check("a rapid grade or navigation cannot queue a second card advance",

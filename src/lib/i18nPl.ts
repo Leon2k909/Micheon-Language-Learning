@@ -2209,6 +2209,8 @@ export const PL: Record<string, string> = {
   "Listen player": "Odtwarzacz Słuchania",
   "Playing in the background": "Odtwarzanie w tle",
   "Listen is paused": "Słuchanie wstrzymane",
+  "The voice did not come through. Trying this card again…": "Głos nie dotarł. Ponawiam tę kartę…",
+  "The voice could not be reached, so Listen paused here. Press Play audio to try again.": "Nie udało się połączyć z głosem, więc słuchanie zatrzymało się tutaj. Naciśnij „Odtwórz dźwięk”, aby spróbować ponownie.",
   "Previous item": "Poprzedni wpis",
   "Next item": "Następny wpis",
   "Close Listen player": "Zamknij odtwarzacz Słuchania",

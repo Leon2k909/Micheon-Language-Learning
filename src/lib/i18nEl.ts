@@ -2490,6 +2490,8 @@ export const EL: Record<string, string> = {
   "Newest first": "Τα νεότερα πρώτα",
   "Playing in the background": "Παίζει στο παρασκήνιο",
   "Listen is paused": "Η ακρόαση είναι σε παύση",
+  "The voice did not come through. Trying this card again…": "Η φωνή δεν ακούστηκε. Νέα προσπάθεια για αυτή την κάρτα…",
+  "The voice could not be reached, so Listen paused here. Press Play audio to try again.": "Η φωνή δεν ήταν διαθέσιμη, οπότε η ακρόαση σταμάτησε εδώ. Πάτησε «Αναπαραγωγή» για να δοκιμάσεις ξανά.",
   "All app audio is muted. Use the sliders below to turn it back on.": "Όλος ο ήχος της εφαρμογής είναι σε σίγαση. Ενεργοποίησέ τον ξανά με τους ρυθμιστές παρακάτω.",
   "Both language voices are muted and will be skipped.": "Και οι δύο φωνές των γλωσσών είναι σε σίγαση και θα παραλειφθούν.",
   "English voice is muted and will be skipped.": "Η αγγλική φωνή είναι σε σίγαση και θα παραλειφθεί.",

@@ -2497,6 +2497,8 @@ export const SQ: Record<string, string> = {
   "Newest first": "Më të rejat së pari",
   "Playing in the background": "Po luhet në sfond",
   "Listen is paused": "Dëgjimi është në pauzë",
+  "The voice did not come through. Trying this card again…": "Zëri nuk erdhi. Po provohet sërish kjo kartë…",
+  "The voice could not be reached, so Listen paused here. Press Play audio to try again.": "Zëri nuk u arrit, ndaj dëgjimi ndaloi këtu. Shtyp «Luaj audion» për të provuar sërish.",
   "All app audio is muted. Use the sliders below to turn it back on.": "I gjithë zëri i aplikacionit është i fikur. Ndize sërish me rrëshqitësit më poshtë.",
   "Both language voices are muted and will be skipped.": "Zërat e të dyja gjuhëve janë të fikur dhe do të kapërcehen.",
   "English voice is muted and will be skipped.": "Zëri në anglisht është i fikur dhe do të kapërcehet.",

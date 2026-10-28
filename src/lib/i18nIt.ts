@@ -2601,6 +2601,8 @@ export const IT: Record<string, string> = {
   "Newest first": "Prima le più recenti",
   "Playing in the background": "In riproduzione in sottofondo",
   "Listen is paused": "Ascolto è in pausa",
+  "The voice did not come through. Trying this card again…": "La voce non è arrivata. Riprovo con questa scheda…",
+  "The voice could not be reached, so Listen paused here. Press Play audio to try again.": "Non è stato possibile raggiungere la voce, quindi l’ascolto si è fermato qui. Premi «Riproduci l’audio» per riprovare.",
   "All app audio is muted. Use the sliders below to turn it back on.": "Tutto l'audio dell'app è silenziato. Usa i cursori qui sotto per riattivarlo.",
   "Both language voices are muted and will be skipped.": "Le voci di tutte e due le lingue sono silenziate e verranno saltate.",
   "English voice is muted and will be skipped.": "La voce inglese è silenziata e verrà saltata.",
