@@ -11719,6 +11719,10 @@ html[data-theme="dark"] {
 .fs-match-column-head span:last-child { text-align: right; }
 .fs-match-column-head svg { color: #a98aef; }
 .fs-match-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+/* A round of more than six pieces stacks its groups, each its own board. */
+.fs-match-grid + .fs-match-grid {
+  margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--fs-line-strong);
+}
 .guided-session .fs-match-option {
   position: relative; min-width: 0; min-height: 58px;
   display: flex; align-items: center; justify-content: space-between; gap: 10px;

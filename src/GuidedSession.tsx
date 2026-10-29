@@ -6249,10 +6249,10 @@ function shuffledMatchTargets(
 const SESSION_MATCH_BOARD = 6;
 
 /**
- * Every piece once, in boards as even as six allows.
+ * Every piece once, in groups as even as six allows.
  *
  * Cutting long lines into sentences can leave more than six pieces, and
- * dealing six and then the remainder would end on a board of one, which is
+ * dealing six and then the remainder would end on a group of one, which is
  * matched before it is read. Seven pieces deal as four and three.
  */
 function dealMatchBoards(items: MatchingItem[]): MatchingItem[][] {
@@ -6279,9 +6279,12 @@ function dealMatchBoards(items: MatchingItem[]): MatchingItem[][] {
  * away the thing matching is actually good for — going round again on the same
  * handful of phrases until they come without thinking.
  *
- * So it deals up to six at a time and refills: clear a board and the next one
- * comes, until every piece has been on one. And Continue is always live, so
- * leaving is a decision rather than a reward.
+ * So every piece is on screen at once, in groups of up to six, one under the
+ * other. Each group is its own small board — a pair is found within its group —
+ * but none replaces another. Clearing a board used to swap the next one in
+ * under the same Continue button, so a click meant for "next" left the round
+ * with a board never seen. And Continue is always live, so leaving is a
+ * decision rather than a reward.
  */
 function SessionMatchingPairs({
   round,
@@ -6291,11 +6294,12 @@ function SessionMatchingPairs({
 }: {
   round: MatchingRound;
   onAnswer?: (correct: boolean) => void;
-  /** Pairs landed on the board in front of you, and how many it holds. */
+  /** Pairs landed so far, and how many the whole round holds. */
   onProgress: (matched: number, boardSize: number) => void;
   onComplete: () => void;
 }) {
   const boards = useMemo(() => dealMatchBoards(round.items), [round]);
+  const reduceMotion = useReducedMotion() || effectsReduced();
   const sides = courseSides();
   // Start from the learner's own language, which is the easier way round —
   // except in the English course, which opened the other way before this and
@@ -6308,66 +6312,48 @@ function SessionMatchingPairs({
   const [matchedIds, setMatchedIds] = useState<Set<string>>(() => new Set());
   const [wrongIds, setWrongIds] = useState<Set<string>>(() => new Set());
   const [resolving, setResolving] = useState(false);
-  // Which board is in front of you, and how many pairs have been landed on
-  // the boards before it.
-  const [boardIndex, setBoardIndex] = useState(0);
-  const [cleared, setCleared] = useState(0);
   const resetTimer = useRef<number | undefined>(undefined);
-  const refillTimer = useRef<number | undefined>(undefined);
+  const groupRefs = useRef<Array<HTMLDivElement | null>>([]);
 
-  // Clamped, in case a card marked known mid-round leaves fewer boards.
-  const boardAt = Math.min(boardIndex, Math.max(0, boards.length - 1));
-  const boardItems = useMemo(() => boards[boardAt] ?? [], [boards, boardAt]);
-
-  const targetItems = useMemo(
-    () => shuffledMatchTargets(boardItems, direction),
-    [boardItems, direction]
+  // Each group's right-hand column, shuffled within the group.
+  const boardTargets = useMemo(
+    () => boards.map((board) => shuffledMatchTargets(board, direction)),
+    [boards, direction]
   );
   const readingMeaningFirst = direction === "meaning-target";
   const sourceSide = readingMeaningFirst ? sides.meaning : sides.target;
   const targetSide = readingMeaningFirst ? sides.target : sides.meaning;
   const sourceText = (item: MatchingItem) => readingMeaningFirst ? item.meaning : item.target;
   const targetText = (item: MatchingItem) => readingMeaningFirst ? item.target : item.meaning;
-  const boardCleared = boardItems.length > 0 && matchedIds.size === boardItems.length;
+  const total = round.items.length;
+  const roundCleared = total > 0 && matchedIds.size === total;
   /**
-   * Whether a next board exists at all.
-   *
-   * The boards are dealt once, every piece on exactly one of them, and the
-   * round ends with the last. It used to wrap back to the start, which re-dealt
-   * the very same pairs shuffled into new positions — that reads as a new
-   * board and is not one. Somebody who had just matched all six was asked to
-   * match them again, with the counter behind it saying six pairs so far.
+   * The group the number keys play: the one holding a half-made pair, or else
+   * the first with anything left in it. Digits only reach nine, and the groups
+   * together can hold more, so each group counts its own rows from one.
    */
-  const moreToDeal = boardAt < boards.length - 1;
+  const groupOf = (matchId: string) => boards.findIndex((board) => board.some((item) => item.matchId === matchId));
+  const keyedGroup = sourceId
+    ? groupOf(sourceId)
+    : boards.findIndex((board) => board.some((item) => !matchedIds.has(item.matchId)));
 
   useEffect(() => {
-    onProgress(matchedIds.size, boardItems.length);
-  }, [matchedIds, boardItems.length, onProgress]);
+    onProgress(matchedIds.size, total);
+  }, [matchedIds, total, onProgress]);
 
-  /**
-   * A cleared board deals the next one — until the sitting's cards run out,
-   * and then the round is done.
-   *
-   * After a beat either way, so the last pair is seen to land green instead of
-   * vanishing under its replacement — the whole board turning over the instant
-   * you match reads as having got something wrong.
-   */
+  // When a group is finished and the keys move on to the next, bring that one
+  // into view: with enough pieces it starts below the fold.
+  const keyedGroupSeen = useRef(keyedGroup);
   useEffect(() => {
-    if (!boardCleared || !moreToDeal) return;
-    refillTimer.current = window.setTimeout(() => {
-      setCleared((total) => total + boardItems.length);
-      setBoardIndex(boardAt + 1);
-      setMatchedIds(new Set());
-      setSourceId(null);
-      setTargetId(null);
-      setWrongIds(new Set());
-    }, 620);
-    return () => window.clearTimeout(refillTimer.current);
-  }, [boardCleared, boardItems.length, boardAt, moreToDeal]);
+    if (keyedGroup === keyedGroupSeen.current) return;
+    keyedGroupSeen.current = keyedGroup;
+    if (keyedGroup > 0) {
+      groupRefs.current[keyedGroup]?.scrollIntoView({ block: "nearest", behavior: reduceMotion ? "auto" : "smooth" });
+    }
+  }, [keyedGroup, reduceMotion]);
 
   useEffect(() => () => {
     if (resetTimer.current) window.clearTimeout(resetTimer.current);
-    if (refillTimer.current) window.clearTimeout(refillTimer.current);
   }, []);
 
   const resetRound = (nextDirection: MatchDirection) => {
@@ -6418,7 +6404,7 @@ function SessionMatchingPairs({
 
   const selectSource = (matchId: string) => {
     if (resolving || matchedIds.has(matchId)) return;
-    const item = boardItems.find((candidate) => candidate.matchId === matchId);
+    const item = round.items.find((candidate) => candidate.matchId === matchId);
     if (item) speakCard(sourceText(item), sourceSide.voice);
     setSourceId(matchId);
     if (targetId) checkPair(matchId, targetId);
@@ -6426,7 +6412,7 @@ function SessionMatchingPairs({
 
   const selectTarget = (matchId: string) => {
     if (resolving || matchedIds.has(matchId)) return;
-    const item = boardItems.find((candidate) => candidate.matchId === matchId);
+    const item = round.items.find((candidate) => candidate.matchId === matchId);
     if (item) speakCard(targetText(item), targetSide.voice);
     setTargetId(matchId);
     if (sourceId) checkPair(sourceId, matchId);
@@ -6459,6 +6445,8 @@ function SessionMatchingPairs({
         setTargetId(null);
         return;
       }
+      const boardItems = boards[keyedGroup] ?? [];
+      const targetItems = boardTargets[keyedGroup] ?? [];
       const row = Number(event.key);
       if (!Number.isInteger(row) || row < 1 || row > boardItems.length) return;
       if (resolving) return;
@@ -6471,7 +6459,7 @@ function SessionMatchingPairs({
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [boardItems, targetItems, sourceId, targetId, resolving, matchedIds]);
+  }, [boards, boardTargets, keyedGroup, sourceId, targetId, resolving, matchedIds]);
 
   return (
     <div className="fs-card-body fs-matching">
@@ -6516,73 +6504,82 @@ function SessionMatchingPairs({
           <span>{ui(targetSide.label)}</span>
         </div>
 
-        <div className="fs-match-grid">
-          {boardItems.map((sourceItem, rowIndex) => {
-            const targetItem = targetItems[rowIndex];
-            const sourceMatched = matchedIds.has(sourceItem.matchId);
-            const targetMatched = matchedIds.has(targetItem.matchId);
-            return (
-              <React.Fragment key={`${direction}-${sourceItem.matchId}`}>
-                <button
-                  type="button"
-                  className={cn(
-                    "fs-match-option",
-                    sourceId === sourceItem.matchId && "is-selected",
-                    sourceMatched && "is-matched",
-                    wrongIds.has(sourceItem.matchId) && "is-wrong"
-                  )}
-                  aria-pressed={sourceId === sourceItem.matchId}
-                  disabled={sourceMatched || resolving}
-                  onClick={() => selectSource(sourceItem.matchId)}
-                >
-                  <kbd className="fs-match-key" aria-hidden>{rowIndex + 1}</kbd>
-                  <span><CourseText code={sourceSide.code} text={sourceText(sourceItem)} /></span>
-                  {sourceMatched && <CheckCircle2 className="h-4 w-4" />}
-                </button>
-                <button
-                  type="button"
-                  className={cn(
-                    "fs-match-option",
-                    targetId === targetItem.matchId && "is-selected",
-                    targetMatched && "is-matched",
-                    wrongIds.has(targetItem.matchId) && "is-wrong"
-                  )}
-                  aria-pressed={targetId === targetItem.matchId}
-                  disabled={targetMatched || resolving}
-                  onClick={() => selectTarget(targetItem.matchId)}
-                >
-                  <kbd className="fs-match-key" aria-hidden>{rowIndex + 1}</kbd>
-                  <span><CourseText code={targetSide.code} text={targetText(targetItem)} /></span>
-                  {targetMatched && <CheckCircle2 className="h-4 w-4" />}
-                </button>
-              </React.Fragment>
-            );
-          })}
-        </div>
+        {boards.map((boardItems, groupIndex) => {
+          const targetItems = boardTargets[groupIndex] ?? [];
+          // The digits are printed only where the number keys will land.
+          const keyed = groupIndex === keyedGroup;
+          return (
+            <div
+              key={`${direction}-group-${groupIndex}`}
+              ref={(element) => { groupRefs.current[groupIndex] = element; }}
+              className="fs-match-grid"
+              role="group"
+              aria-label={boards.length > 1 ? uiFmt("Group {n} of {total}", { n: groupIndex + 1, total: boards.length }) : undefined}
+            >
+              {boardItems.map((sourceItem, rowIndex) => {
+                const targetItem = targetItems[rowIndex];
+                const sourceMatched = matchedIds.has(sourceItem.matchId);
+                const targetMatched = matchedIds.has(targetItem.matchId);
+                return (
+                  <React.Fragment key={`${direction}-${sourceItem.matchId}`}>
+                    <button
+                      type="button"
+                      className={cn(
+                        "fs-match-option",
+                        sourceId === sourceItem.matchId && "is-selected",
+                        sourceMatched && "is-matched",
+                        wrongIds.has(sourceItem.matchId) && "is-wrong"
+                      )}
+                      aria-pressed={sourceId === sourceItem.matchId}
+                      disabled={sourceMatched || resolving}
+                      onClick={() => selectSource(sourceItem.matchId)}
+                    >
+                      {keyed && <kbd className="fs-match-key" aria-hidden>{rowIndex + 1}</kbd>}
+                      <span><CourseText code={sourceSide.code} text={sourceText(sourceItem)} /></span>
+                      {sourceMatched && <CheckCircle2 className="h-4 w-4" />}
+                    </button>
+                    <button
+                      type="button"
+                      className={cn(
+                        "fs-match-option",
+                        targetId === targetItem.matchId && "is-selected",
+                        targetMatched && "is-matched",
+                        wrongIds.has(targetItem.matchId) && "is-wrong"
+                      )}
+                      aria-pressed={targetId === targetItem.matchId}
+                      disabled={targetMatched || resolving}
+                      onClick={() => selectTarget(targetItem.matchId)}
+                    >
+                      {keyed && <kbd className="fs-match-key" aria-hidden>{rowIndex + 1}</kbd>}
+                      <span><CourseText code={targetSide.code} text={targetText(targetItem)} /></span>
+                      {targetMatched && <CheckCircle2 className="h-4 w-4" />}
+                    </button>
+                  </React.Fragment>
+                );
+              })}
+            </div>
+          );
+        })}
       </div>
 
       <div className="fs-match-footer">
         <div className="fs-match-progress" aria-live="polite">
           <div>
             <strong>
-              {boardCleared
-                ? (moreToDeal
-                  ? ui("Board cleared — here comes the next one")
-                  : round.leftOut > 0
-                    ? ui("Board cleared — the longer lines come next, in sentence practice")
-                    : ui("Board cleared — that is every phrase in this lesson"))
-                : `${ui("Matched")} ${matchedIds.size} ${ui("of")} ${boardItems.length}`}
+              {roundCleared
+                ? (round.leftOut > 0
+                  ? ui("Board cleared — the longer lines come next, in sentence practice")
+                  : ui("Board cleared — that is every phrase in this lesson"))
+                : `${ui("Matched")} ${matchedIds.size} ${ui("of")} ${total}`}
             </strong>
             <span>
-              {boardCleared && !moreToDeal
+              {roundCleared
                 ? ui("Start sentence practice whenever you are ready.")
-                : cleared > 0
-                  ? uiFmt("{n} pairs so far. Keep going, or move on whenever you like.", { n: cleared + matchedIds.size })
-                  : ui("Keep going as long as you like — move on whenever you want.")}
+                : ui("Keep going as long as you like — move on whenever you want.")}
             </span>
           </div>
           <div className="fs-match-progress-track" aria-hidden>
-            <i style={{ width: `${boardItems.length ? (matchedIds.size / boardItems.length) * 100 : 0}%` }} />
+            <i style={{ width: `${total ? (matchedIds.size / total) * 100 : 0}%` }} />
           </div>
         </div>
         <div className="fs-match-actions">

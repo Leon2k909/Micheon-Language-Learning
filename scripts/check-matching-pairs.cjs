@@ -220,22 +220,23 @@ check(
     && /onProgress=\{\(matched, boardSize\) =>/u.test(guidedSource)
     && /onComplete=\{\(\) => \{\s*setMatchingActive\(false\);/u.test(guidedSource)
 );
-// ── and it finishes ─────────────────────────────────────────────────────
-// Being ABLE to finish was all this asked, and the round could — by the
-// button. Clearing every pair correctly dealt the same cards again instead,
-// so the round cycled: the counter back to nought, a fresh board, and no way
-// on that did not read as skipping it. What ends it is running out of the
-// sitting's own cards, and the footer has to say so — a cleared board that
-// silently stops dealing is indistinguishable from one that is still going.
+// ── every group on one screen ──────────────────────────────────────────────
+// More than six pieces used to come one board at a time: clearing a board
+// swapped the next in under the same Continue button, so a click meant for
+// "next" left the round with a board never seen. Every group is on screen
+// from the start now, one under the other, and nothing is dealt or replaced.
+// Before that the round wrapped and re-dealt the same cards, which cycled.
 check(
-  "a board with nothing left to deal does not deal another",
-  guidedSource.includes("const moreToDeal = boardAt < boards.length - 1;")
-    && guidedSource.includes("if (!boardCleared || !moreToDeal) return;")
+  "every group is rendered at once, and none is swapped in for another",
+  /\{boards\.map\(\(boardItems, groupIndex\) =>/u.test(guidedSource)
+    && !/setBoardIndex|refillTimer|moreToDeal/u.test(guidedSource)
     && !/% items\.length/u.test(guidedSource)
 );
 check(
-  "and says so, rather than sitting there looking unfinished",
-  guidedSource.includes('ui("Board cleared — that is every phrase in this lesson")')
+  "the footer counts the whole round, and says when it is all done",
+  guidedSource.includes("const roundCleared = total > 0 && matchedIds.size === total;")
+    && guidedSource.includes("onProgress(matchedIds.size, total);")
+    && guidedSource.includes('ui("Board cleared — that is every phrase in this lesson")')
     && guidedSource.includes('ui("Board cleared — the longer lines come next, in sentence practice")')
     && guidedSource.includes("round.leftOut > 0")
     && guidedSource.includes('ui("Start sentence practice whenever you are ready.")')
@@ -245,13 +246,21 @@ check(
 // A digit picks the row printed beside it, and the column it lands in is
 // whichever the board is waiting for: the left with nothing chosen, the right
 // once the left is. Escape puts a half-made pair back. Verified in the browser
-// as well: 1 then 1 matched a pair and the footer moved to 1 of 4.
+// as well: 1 then 1 matched a pair and the footer moved to 1 of 4. With groups
+// stacked, the keys play one group — the one holding a half-made pair, else
+// the first unfinished — and only that group shows its digits.
 check(
   "the number row plays the board, left column first and right second",
   guidedSource.includes("const row = Number(event.key);")
     && guidedSource.includes("const item = sourceId ? targetItems[row - 1] : boardItems[row - 1];")
     && guidedSource.includes("if (sourceId) selectTarget(item.matchId);"),
   "a digit must pick the awaited column, not always the same one"
+);
+check(
+  "with several groups, the keys play one and only it shows the digits",
+  guidedSource.includes("const boardItems = boards[keyedGroup] ?? [];")
+    && guidedSource.includes("const keyed = groupIndex === keyedGroup;")
+    && guidedSource.includes('{keyed && <kbd className="fs-match-key" aria-hidden>{rowIndex + 1}</kbd>}')
 );
 check(
   "Escape puts a half-made pair back",
