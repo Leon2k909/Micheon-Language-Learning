@@ -91,6 +91,7 @@ import { useCodexPets } from "@/components/codexPets/CodexPetProvider";
 import { detectRegister, REGISTER_LABEL } from "@/lib/register";
 import { synonymCommonality, synonymNote } from "@/lib/wordFrequency";
 import { germanWordGloss } from "@/lib/germanWordGloss";
+import { matchingPieces } from "@/lib/matchingPieces";
 import { englishWordGloss } from "@/lib/englishWordGloss";
 import { getCodexPetFrequency } from "@/lib/codexPetCoaching";
 
@@ -5888,6 +5889,7 @@ function FlipFace({ back, flipped, front, onFlip }: {
 
 function SessionFlashcardPreview({
   cards,
+  matchable,
   index,
   onIndexChange,
   onKnown,
@@ -5900,6 +5902,8 @@ function SessionFlashcardPreview({
   onStart,
 }: {
   cards: SessionPreviewCard[];
+  /** Whether a matching round follows: two or more pieces short enough to play. */
+  matchable: boolean;
   index: number;
   onIndexChange: (index: number) => void;
   onKnown: (itemId: string) => void;
@@ -6181,9 +6185,9 @@ function SessionFlashcardPreview({
           </button>
           <button type="button" onClick={next} className="fs-preview-next">
             {/* Where the last flashcard leads depends on what follows it: the
-                matching round, unless this sitting has a single card and
-                there is nothing to match it against. */}
-            {ui(isLast ? (cards.length > 1 ? "Start matching" : "Start sentence practice") : "Next flashcard")}
+                matching round, unless fewer than two of the sitting's lines
+                are short enough to match. */}
+            {ui(isLast ? (matchable ? "Start matching" : "Start sentence practice") : "Next flashcard")}
             <ChevronRight className="h-4 w-4" />
           </button>
         </div>
@@ -6195,33 +6199,39 @@ function SessionFlashcardPreview({
 /** Which column is read first — the meaning, or the language being learned. */
 type MatchDirection = "meaning-target" | "target-meaning";
 type MatchingItem = SessionPreviewCard & { matchId: string };
+type MatchingRound = { items: MatchingItem[]; leftOut: number };
 
-function buildMatchingItems(cards: SessionPreviewCard[]): MatchingItem[] {
-  const safeCards = takeMatchingSafe(
-    cards,
-    cards.length,
-    (card) => ({ german: card.target, english: card.meaning })
-  );
-  return safeCards.map((card, index) => ({
+/**
+ * The sitting's cards as a board can use them — see matchingPieces: short
+ * lines whole, long ones by their short sentences, the rest left for sentence
+ * practice. The flashcards ask this too, so they only promise a matching
+ * round when there is one to play.
+ */
+function buildMatchingRound(cards: SessionPreviewCard[]): MatchingRound {
+  const { pieces, leftOut } = matchingPieces(cards.map((card) => ({
     ...card,
-    matchId: `${card.id}-${index}`,
     target: primaryAnswer(card.target),
     meaning: primaryAnswer(card.meaning),
-  }));
+  })));
+  const safePieces = takeMatchingSafe(
+    pieces,
+    pieces.length,
+    (piece) => ({ german: piece.target, english: piece.meaning })
+  );
+  return {
+    items: safePieces.map((piece, index) => ({ ...piece, matchId: `${piece.id}-${piece.piece}-${index}` })),
+    leftOut,
+  };
 }
 
 function shuffledMatchTargets(
   items: MatchingItem[],
-  direction: MatchDirection,
-  // Which pass over the cards this is. The layout is derived from the cards
-  // rather than rolled, so a re-render never deals a new board under the
-  // cursor — but with a small session the same cards come round again, and
-  // without this they would come round in the same two columns, which is a
-  // memory test of the layout rather than of the language.
-  pass = 0
+  direction: MatchDirection
 ): MatchingItem[] {
+  // Derived from the cards rather than rolled, so a re-render never deals a
+  // new layout under the cursor.
   const shuffled = [...items].sort(
-    (a, b) => choiceHash(`match|${direction}|${pass}|${a.matchId}`) - choiceHash(`match|${direction}|${pass}|${b.matchId}`)
+    (a, b) => choiceHash(`match|${direction}|${a.matchId}`) - choiceHash(`match|${direction}|${b.matchId}`)
   );
   if (
     shuffled.length > 1
@@ -6239,6 +6249,27 @@ function shuffledMatchTargets(
 const SESSION_MATCH_BOARD = 6;
 
 /**
+ * Every piece once, in boards as even as six allows.
+ *
+ * Cutting long lines into sentences can leave more than six pieces, and
+ * dealing six and then the remainder would end on a board of one, which is
+ * matched before it is read. Seven pieces deal as four and three.
+ */
+function dealMatchBoards(items: MatchingItem[]): MatchingItem[][] {
+  if (items.length === 0) return [];
+  const count = Math.ceil(items.length / SESSION_MATCH_BOARD);
+  const base = Math.floor(items.length / count);
+  const boards: MatchingItem[][] = [];
+  let at = 0;
+  for (let board = 0; board < count; board += 1) {
+    const size = base + (board < items.length % count ? 1 : 0);
+    boards.push(items.slice(at, at + size));
+    at += size;
+  }
+  return boards;
+}
+
+/**
  * Matching, on the phrases this session is teaching, for as long as you like.
  *
  * It used to be a gate: every pair on one board, Continue greyed out until the
@@ -6248,24 +6279,23 @@ const SESSION_MATCH_BOARD = 6;
  * away the thing matching is actually good for — going round again on the same
  * handful of phrases until they come without thinking.
  *
- * So it deals six at a time and refills: clear a board and the next one comes,
- * wrapping back to the start when the session's cards run out, because coming
- * round again for review is the point rather than a shortage. And Continue is
- * always live, so leaving is a decision rather than a reward.
+ * So it deals up to six at a time and refills: clear a board and the next one
+ * comes, until every piece has been on one. And Continue is always live, so
+ * leaving is a decision rather than a reward.
  */
 function SessionMatchingPairs({
-  cards,
+  round,
   onAnswer,
   onProgress,
   onComplete,
 }: {
-  cards: SessionPreviewCard[];
+  round: MatchingRound;
   onAnswer?: (correct: boolean) => void;
   /** Pairs landed on the board in front of you, and how many it holds. */
   onProgress: (matched: number, boardSize: number) => void;
   onComplete: () => void;
 }) {
-  const items = useMemo(() => buildMatchingItems(cards), [cards]);
+  const boards = useMemo(() => dealMatchBoards(round.items), [round]);
   const sides = courseSides();
   // Start from the learner's own language, which is the easier way round —
   // except in the English course, which opened the other way before this and
@@ -6278,25 +6308,20 @@ function SessionMatchingPairs({
   const [matchedIds, setMatchedIds] = useState<Set<string>>(() => new Set());
   const [wrongIds, setWrongIds] = useState<Set<string>>(() => new Set());
   const [resolving, setResolving] = useState(false);
-  // Where in the session's cards this board starts, and how many pairs have
-  // been landed on the boards before it.
-  const [boardStart, setBoardStart] = useState(0);
+  // Which board is in front of you, and how many pairs have been landed on
+  // the boards before it.
+  const [boardIndex, setBoardIndex] = useState(0);
   const [cleared, setCleared] = useState(0);
   const resetTimer = useRef<number | undefined>(undefined);
   const refillTimer = useRef<number | undefined>(undefined);
 
-  const boardItems = useMemo(() => {
-    if (items.length === 0) return [];
-    const size = Math.min(SESSION_MATCH_BOARD, items.length);
-    return Array.from({ length: size }, (_, offset) => items[(boardStart + offset) % items.length]);
-  }, [items, boardStart]);
+  // Clamped, in case a card marked known mid-round leaves fewer boards.
+  const boardAt = Math.min(boardIndex, Math.max(0, boards.length - 1));
+  const boardItems = useMemo(() => boards[boardAt] ?? [], [boards, boardAt]);
 
   const targetItems = useMemo(
-    // The pass number, so a board of the same cards lays out differently the
-    // second time round. Integer division rather than boardStart itself, or a
-    // session of seven cards would call every board a new pass.
-    () => shuffledMatchTargets(boardItems, direction, Math.floor(cleared / Math.max(1, boardItems.length))),
-    [boardItems, direction, cleared]
+    () => shuffledMatchTargets(boardItems, direction),
+    [boardItems, direction]
   );
   const readingMeaningFirst = direction === "meaning-target";
   const sourceSide = readingMeaningFirst ? sides.meaning : sides.target;
@@ -6307,14 +6332,13 @@ function SessionMatchingPairs({
   /**
    * Whether a next board exists at all.
    *
-   * The refill below advances by a whole board and wraps, which deals the
-   * next six of a longer round. A lesson previews at most six cards and the
-   * board holds six, so the wrap landed back on nought and re-dealt the very
-   * same six — shuffled into new positions, which reads as a new board and is
-   * not one. Somebody who had just matched all six was asked to match them
-   * again, with the counter behind it saying six pairs so far.
+   * The boards are dealt once, every piece on exactly one of them, and the
+   * round ends with the last. It used to wrap back to the start, which re-dealt
+   * the very same pairs shuffled into new positions — that reads as a new
+   * board and is not one. Somebody who had just matched all six was asked to
+   * match them again, with the counter behind it saying six pairs so far.
    */
-  const moreToDeal = items.length > boardItems.length;
+  const moreToDeal = boardAt < boards.length - 1;
 
   useEffect(() => {
     onProgress(matchedIds.size, boardItems.length);
@@ -6327,20 +6351,19 @@ function SessionMatchingPairs({
    * After a beat either way, so the last pair is seen to land green instead of
    * vanishing under its replacement — the whole board turning over the instant
    * you match reads as having got something wrong.
-
    */
   useEffect(() => {
     if (!boardCleared || !moreToDeal) return;
     refillTimer.current = window.setTimeout(() => {
       setCleared((total) => total + boardItems.length);
-      setBoardStart((start) => (start + boardItems.length) % items.length);
+      setBoardIndex(boardAt + 1);
       setMatchedIds(new Set());
       setSourceId(null);
       setTargetId(null);
       setWrongIds(new Set());
     }, 620);
     return () => window.clearTimeout(refillTimer.current);
-  }, [boardCleared, boardItems.length, items.length, moreToDeal]);
+  }, [boardCleared, boardItems.length, boardAt, moreToDeal]);
 
   useEffect(() => () => {
     if (resetTimer.current) window.clearTimeout(resetTimer.current);
@@ -6395,7 +6418,7 @@ function SessionMatchingPairs({
 
   const selectSource = (matchId: string) => {
     if (resolving || matchedIds.has(matchId)) return;
-    const item = items.find((candidate) => candidate.matchId === matchId);
+    const item = boardItems.find((candidate) => candidate.matchId === matchId);
     if (item) speakCard(sourceText(item), sourceSide.voice);
     setSourceId(matchId);
     if (targetId) checkPair(matchId, targetId);
@@ -6403,7 +6426,7 @@ function SessionMatchingPairs({
 
   const selectTarget = (matchId: string) => {
     if (resolving || matchedIds.has(matchId)) return;
-    const item = items.find((candidate) => candidate.matchId === matchId);
+    const item = boardItems.find((candidate) => candidate.matchId === matchId);
     if (item) speakCard(targetText(item), targetSide.voice);
     setTargetId(matchId);
     if (sourceId) checkPair(sourceId, matchId);
@@ -6545,7 +6568,9 @@ function SessionMatchingPairs({
               {boardCleared
                 ? (moreToDeal
                   ? ui("Board cleared — here comes the next one")
-                  : ui("Board cleared — that is every phrase in this lesson"))
+                  : round.leftOut > 0
+                    ? ui("Board cleared — the longer lines come next, in sentence practice")
+                    : ui("Board cleared — that is every phrase in this lesson"))
                 : `${ui("Matched")} ${matchedIds.size} ${ui("of")} ${boardItems.length}`}
             </strong>
             <span>
@@ -6690,6 +6715,8 @@ export default function GuidedSession({ steps, onComplete, onCancel, onGradeItem
     [safeSteps]
   );
   const previewCards = useMemo(() => buildSessionPreviewCards(safeSteps), [steps]);
+  const matchingRound = useMemo(() => buildMatchingRound(previewCards), [previewCards]);
+  const matchable = matchingRound.items.length > 1;
   /**
    * Name what was marked, so the notice can say which phrase it means. Ids are
    * opaque, and once the lesson has moved on the card is no longer on screen.
@@ -6797,7 +6824,7 @@ export default function GuidedSession({ steps, onComplete, onCancel, onGradeItem
   );
   const inPreview = previewActive && previewCards.length > 0;
   // One card cannot be matched against anything, so the round is skipped.
-  const inMatching = matchingActive && previewCards.length > 1;
+  const inMatching = matchingActive && matchable;
   const inIntro = inPreview || inMatching;
 
   useEffect(() => {
@@ -7296,6 +7323,7 @@ export default function GuidedSession({ steps, onComplete, onCancel, onGradeItem
                 {inPreview ? (
                   <SessionFlashcardPreview
                     cards={previewCards}
+                    matchable={matchable}
                     index={previewIndex}
                     onIndexChange={setPreviewIndex}
                     onKnown={markPreviewItemKnown}
@@ -7304,12 +7332,12 @@ export default function GuidedSession({ steps, onComplete, onCancel, onGradeItem
                     notice={lastManualReviewChange}
                     onUndoNotice={undoLastManualReviewChange}
                     onDismissNotice={() => setLastManualReviewChange(null)}
-                    onSkip={() => { setPreviewActive(false); setMatchingActive(previewCards.length > 1); setMatchingProgress(0); }}
-                    onStart={() => { setPreviewActive(false); setMatchingActive(previewCards.length > 1); setMatchingProgress(0); }}
+                    onSkip={() => { setPreviewActive(false); setMatchingActive(matchable); setMatchingProgress(0); }}
+                    onStart={() => { setPreviewActive(false); setMatchingActive(matchable); setMatchingProgress(0); }}
                   />
                 ) : inMatching ? (
                   <SessionMatchingPairs
-                    cards={previewCards}
+                    round={matchingRound}
                     onAnswer={registerAnswer}
                     onProgress={(matched, boardSize) => {
                       setMatchingProgress(matched);

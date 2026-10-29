@@ -13,6 +13,7 @@ const result = esbuild.buildSync({
         takeMatchingSafe,
       } from "./src/lib/germanTextMatch.ts";
       export { pickFresh, pickReviews } from "./src/session.ts";
+      export { matchingPieces, sentencePairs, splitSentences } from "./src/lib/matchingPieces.ts";
     `,
     resolveDir: root,
     sourcefile: "matching-pairs-check-entry.ts",
@@ -32,10 +33,13 @@ compiled.paths = Module._nodeModulePaths(root);
 compiled._compile(result.outputFiles[0].text, compiled.filename);
 
 const {
+  matchingPieces,
   matchingVisibleKey,
   matchingVisibleKeys,
   pickFresh,
   pickReviews,
+  sentencePairs,
+  splitSentences,
   takeMatchingSafe,
 } = compiled.exports;
 
@@ -133,6 +137,57 @@ check(
   exhausted.length === 1 && exhausted[0].item.id === "du"
 );
 
+// ── a board holds what can be read whole ───────────────────────────────────
+// A long line is matched by spotting one word only it contains — Zwiebeln
+// finds "onions" — and the rest goes unread. These six dialogue lines filled
+// a whole board that way. Multi-sentence lines are cut into their sentences
+// where both languages cut alike; what is still long is left to sentence
+// practice, and the board says so.
+const card = (id, target, meaning) => ({ id, target, meaning });
+const dialogueBoard = [
+  card("pan", "Klein schneiden und in der Pfanne glasig anbraten. Aber nicht zu heiß, sonst brennen sie an.", "Chop them small and fry them in the pan until translucent. But not too hot, or they'll burn."),
+  card("logic", "Logisch wäre eine klare Ansage. Aber das ist wohl undenkbar.", "The logical thing would be a clear announcement. But that's apparently unthinkable."),
+  card("station", "Die Ansage am Bahnhof war mal wieder völlig undeutlich.", "The station announcement was completely unclear again."),
+  card("onions", "Mach ich. Und was passiert mit den Zwiebeln?", "On it. And what happens with the onions?"),
+  card("vague", "Unrealistisch ist das nicht, aber unpräzise.", "It's not unrealistic, but it is imprecise."),
+  card("week", "Identisch mit letzter Woche. Konstant schlecht, immerhin.", "Identical to last week. Consistently bad, at least."),
+];
+const dialogueRound = matchingPieces(dialogueBoard);
+const wordsIn = (text) => text.split(/\s+/).length;
+check(
+  "no piece on the board runs past six words of the language being learned",
+  dialogueRound.pieces.length > 0 && dialogueRound.pieces.every((piece) => wordsIn(piece.target) <= 6)
+);
+check(
+  "a two-sentence line is cut into its sentences, each with its own translation",
+  dialogueRound.pieces.some((piece) => piece.target === "Mach ich." && piece.meaning === "On it.")
+    && dialogueRound.pieces.some((piece) => piece.target === "Und was passiert mit den Zwiebeln?" && piece.meaning === "And what happens with the onions?")
+    && dialogueRound.pieces.some((piece) => piece.target === "Konstant schlecht, immerhin." && piece.meaning === "Consistently bad, at least.")
+);
+check(
+  "a short line stays whole",
+  dialogueRound.pieces.some((piece) => piece.target === "Unrealistisch ist das nicht, aber unpräzise.")
+);
+check(
+  "a long single sentence stays off the board, and is counted as left for later",
+  !dialogueRound.pieces.some((piece) => piece.id === "station")
+    && !dialogueRound.pieces.some((piece) => piece.target.startsWith("Klein schneiden"))
+    && dialogueRound.leftOut === 3
+);
+check(
+  "two sentences each are not two cuts in the same place",
+  sentencePairs("Ja. Das ist gut, oder?", "Yes, that's good. Isn't it?").length === 1
+);
+check(
+  "a full stop after an initial or an ordinal ends no sentence",
+  splitSentences("Am 3. Mai kommt z. B. Anna.").length === 1
+    && splitSentences("Gut. „Wirklich?“ Ja.").length === 3
+);
+check(
+  "a pair that reads the same in both languages is matched by sight, so it stays off",
+  matchingPieces([card("ok", "Okay.", "Okay."), card("hi", "Hallo!", "Hello!")]).pieces.map((piece) => piece.id).join(",") === "hi"
+);
+
 const guidedSource = fs.readFileSync(path.join(root, "src/GuidedSession.tsx"), "utf8");
 // The dedupe the session's flashcards share with the standalone Matcher: two
 // entries whose visible text is the same on either side are one card shown
@@ -146,17 +201,22 @@ check(
 // This asserted the opposite until the round came back: it was written when
 // the board was removed, and it pinned the removal rather than a rule. What
 // holds now is the handover — the cards are met, then matched, then produced
-// — and the one exception that makes it honest: a sitting holding a single
-// card has nothing to match it against and goes straight to practice.
+// — and the one exception that makes it honest: a sitting with fewer than two
+// pieces short enough to match goes straight to practice. The flashcards and
+// the board ask the same round, so the button never promises a round that the
+// board then cannot deal.
 check(
-  "the last flashcard leads to matching, unless there is only one card",
-  guidedSource.includes('{ui(isLast ? (cards.length > 1 ? "Start matching" : "Start sentence practice") : "Next flashcard")}')
+  "the last flashcard leads to matching, unless fewer than two pieces can be matched",
+  guidedSource.includes('{ui(isLast ? (matchable ? "Start matching" : "Start sentence practice") : "Next flashcard")}')
     && guidedSource.includes("function SessionMatchingPairs")
-    && guidedSource.includes("const inMatching = matchingActive && previewCards.length > 1;")
+    && guidedSource.includes("const matchingRound = useMemo(() => buildMatchingRound(previewCards), [previewCards]);")
+    && guidedSource.includes("const matchable = matchingRound.items.length > 1;")
+    && guidedSource.includes("const inMatching = matchingActive && matchable;")
+    && /matchingPieces\(cards\.map/u.test(guidedSource)
 );
 check(
   "and the round is reachable, scored and able to finish",
-  /<SessionMatchingPairs\s+cards=\{previewCards\}/u.test(guidedSource)
+  /<SessionMatchingPairs\s+round=\{matchingRound\}/u.test(guidedSource)
     && /onProgress=\{\(matched, boardSize\) =>/u.test(guidedSource)
     && /onComplete=\{\(\) => \{\s*setMatchingActive\(false\);/u.test(guidedSource)
 );
@@ -169,12 +229,15 @@ check(
 // silently stops dealing is indistinguishable from one that is still going.
 check(
   "a board with nothing left to deal does not deal another",
-  guidedSource.includes("const moreToDeal = items.length > boardItems.length;")
+  guidedSource.includes("const moreToDeal = boardAt < boards.length - 1;")
     && guidedSource.includes("if (!boardCleared || !moreToDeal) return;")
+    && !/% items\.length/u.test(guidedSource)
 );
 check(
   "and says so, rather than sitting there looking unfinished",
   guidedSource.includes('ui("Board cleared — that is every phrase in this lesson")')
+    && guidedSource.includes('ui("Board cleared — the longer lines come next, in sentence practice")')
+    && guidedSource.includes("round.leftOut > 0")
     && guidedSource.includes('ui("Start sentence practice whenever you are ready.")')
 );
 

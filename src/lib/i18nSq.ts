@@ -1473,6 +1473,7 @@ export const SQ: Record<string, string> = {
   "{from} to {to}": "{from} në {to}",
   "Board cleared — here comes the next one": "Tabela u pastrua — ja ku vjen tjetra",
   "Board cleared — that is every phrase in this lesson": "Tabela u pastrua — këto ishin të gjitha shprehjet e këtij mësimi",
+  "Board cleared — the longer lines come next, in sentence practice": "Tabela u pastrua — shprehjet më të gjata vijnë më pas, në ushtrimin me fjali",
   "Matched": "Çiftuar",
   "Start sentence practice whenever you are ready.": "Nis ushtrimin me fjali kur të jesh gati.",
   "{n} pairs so far. Keep going, or move on whenever you like.": "{n} çifte deri tani. Vazhdo, ose kalo më tej kur të duash.",

@@ -3240,6 +3240,7 @@ export const RU: Record<string, string> = {
   "Wishing someone well": "Пожелать человеку добра",
   "История, устройство и повседневная жизнь: как устроена страна.": "История, устройство и повседневная жизнь: как устроена страна.",
   "Board cleared — that is every phrase in this lesson": "Всё собрано — это все фразы этого урока",
+  "Board cleared — the longer lines come next, in sentence practice": "Всё собрано — длинные фразы будут дальше, в тренировке предложений",
   "Start sentence practice whenever you are ready.": "Начни практику фраз, когда будешь готов.",
   "Or use the number keys: one press for the left column, then one for the right. Escape undoes a half-made pair.": "Или цифровыми клавишами: одно нажатие для левого столбца, затем одно для правого. Escape отменяет недоделанную пару.",
   "Not interested": "Не интересует",

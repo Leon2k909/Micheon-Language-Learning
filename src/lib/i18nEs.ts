@@ -3324,6 +3324,7 @@ export const ES: Record<string, string> = {
   "Wishing someone well": "Desear lo mejor a alguien",
   "words inside": "palabras dentro",
   "Board cleared — that is every phrase in this lesson": "Tablero completado — son todas las frases de esta lección",
+  "Board cleared — the longer lines come next, in sentence practice": "Tablero completado — las frases más largas vienen ahora, en la práctica de frases",
   "Start sentence practice whenever you are ready.": "Empieza la práctica de frases cuando quieras.",
   "Or use the number keys: one press for the left column, then one for the right. Escape undoes a half-made pair.": "O con las teclas numéricas: una pulsación para la columna izquierda y otra para la derecha. Escape deshace una pareja a medias.",
 

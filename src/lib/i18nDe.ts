@@ -3991,6 +3991,7 @@ export const DE: Record<string, string> = {
   "Arriving as a guest": "Als Gast ankommen",
   "Wishing someone well": "Jemandem Gutes wünschen",
   "Board cleared — that is every phrase in this lesson": "Feld geschafft — das sind alle Sätze dieser Lektion",
+  "Board cleared — the longer lines come next, in sentence practice": "Feld geschafft — die längeren Sätze kommen als Nächstes im Satztraining",
   "Start sentence practice whenever you are ready.": "Starte die Satzübung, wann du willst.",
   "Or use the number keys: one press for the left column, then one for the right. Escape undoes a half-made pair.": "Oder mit den Zifferntasten: ein Druck für die linke Spalte, dann einer für die rechte. Escape nimmt ein halbes Paar zurück.",
 

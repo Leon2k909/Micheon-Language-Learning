@@ -1466,6 +1466,7 @@ export const EL: Record<string, string> = {
   "{from} to {to}": "{from} προς {to}",
   "Board cleared — here comes the next one": "Το ταμπλό καθάρισε — έρχεται το επόμενο",
   "Board cleared — that is every phrase in this lesson": "Το ταμπλό καθάρισε — αυτές ήταν όλες οι φράσεις αυτής της ενότητας",
+  "Board cleared — the longer lines come next, in sentence practice": "Το ταμπλό καθάρισε — οι μεγαλύτερες φράσεις έρχονται μετά, στην εξάσκηση σε προτάσεις",
   "Matched": "Ταίριαξαν",
   "Start sentence practice whenever you are ready.": "Ξεκίνα την εξάσκηση σε προτάσεις όποτε θέλεις.",
   "{n} pairs so far. Keep going, or move on whenever you like.": "{n} ζευγάρια ως τώρα. Συνέχισε ή προχώρα όποτε θες.",

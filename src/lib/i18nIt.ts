@@ -3306,6 +3306,7 @@ export const IT: Record<string, string> = {
   "Wishing someone well": "Fare gli auguri",
   "words inside": "parole dentro",
   "Board cleared — that is every phrase in this lesson": "Griglia completata — sono tutte le frasi di questa lezione",
+  "Board cleared — the longer lines come next, in sentence practice": "Griglia completata — le frasi più lunghe arrivano ora, nell'esercizio sulle frasi",
   "Start sentence practice whenever you are ready.": "Inizia la pratica delle frasi quando vuoi.",
   "Or use the number keys: one press for the left column, then one for the right. Escape undoes a half-made pair.": "Oppure con i tasti numerici: una pressione per la colonna di sinistra, poi una per quella di destra. Esc annulla una coppia a metà.",
 
